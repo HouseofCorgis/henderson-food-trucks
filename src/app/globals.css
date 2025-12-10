@@ -1,0 +1,116 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Source+Sans+3:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-display: 'Playfair Display', serif;
+  --font-body: 'Source Sans 3', sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-body);
+  background-color: #f9f9f8;
+  color: #2b2924;
+}
+
+/* Mountain silhouette decoration */
+.mountain-divider {
+  background-image: url("data:image/svg+xml,%3Csvg width='1440' height='120' viewBox='0 0 1440 120' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 120L60 108C120 96 240 72 360 66C480 60 600 72 720 78C840 84 960 84 1080 78C1200 72 1320 60 1380 54L1440 48V120H1380C1320 120 1200 120 1080 120C960 120 840 120 720 120C600 120 480 120 360 120C240 120 120 120 60 120H0Z' fill='%234d7550' fill-opacity='0.1'/%3E%3Cpath d='M0 120L80 102C160 84 320 48 480 42C640 36 800 60 960 72C1120 84 1280 84 1360 84L1440 84V120H1360C1280 120 1120 120 960 120C800 120 640 120 480 120C320 120 160 120 80 120H0Z' fill='%234d7550' fill-opacity='0.15'/%3E%3Cpath d='M0 120L48 114C96 108 192 96 288 90C384 84 480 84 576 87C672 90 768 96 864 99C960 102 1056 102 1152 99C1248 96 1344 90 1392 87L1440 84V120H1392C1344 120 1248 120 1152 120C1056 120 960 120 864 120C768 120 672 120 576 120C480 120 384 120 288 120C192 120 96 120 48 120H0Z' fill='%234d7550' fill-opacity='0.2'/%3E%3C/svg%3E");
+  background-size: cover;
+  background-position: bottom;
+  height: 120px;
+  margin-top: -1px;
+}
+
+.mountain-divider-inverted {
+  background-image: url("data:image/svg+xml,%3Csvg width='1440' height='120' viewBox='0 0 1440 120' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0L60 12C120 24 240 48 360 54C480 60 600 48 720 42C840 36 960 36 1080 42C1200 48 1320 60 1380 66L1440 72V0H1380C1320 0 1200 0 1080 0C960 0 840 0 720 0C600 0 480 0 360 0C240 0 120 0 60 0H0Z' fill='%23f9f9f8'/%3E%3C/svg%3E");
+  background-size: cover;
+  background-position: top;
+  height: 120px;
+  margin-bottom: -1px;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f3f2f0;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #9fb8a1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #6f9373;
+}
+
+/* Animation delays for staggered effects */
+.stagger-1 { animation-delay: 0.1s; }
+.stagger-2 { animation-delay: 0.2s; }
+.stagger-3 { animation-delay: 0.3s; }
+.stagger-4 { animation-delay: 0.4s; }
+.stagger-5 { animation-delay: 0.5s; }
+
+/* Leaflet map overrides */
+.leaflet-container {
+  font-family: var(--font-body);
+  border-radius: 12px;
+}
+
+.leaflet-popup-content-wrapper {
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+}
+
+.leaflet-popup-content {
+  margin: 16px;
+}
+
+/* Card hover effect */
+.card-hover {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.card-hover:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px rgba(77, 117, 80, 0.15);
+}
+
+/* Gradient text */
+.gradient-text {
+  background: linear-gradient(135deg, #4d7550 0%, #3b5d3e 50%, #e4734f 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Tag styles */
+.tag {
+  @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium;
+}
+
+.tag-vegetarian {
+  @apply bg-green-100 text-green-800;
+}
+
+.tag-vegan {
+  @apply bg-emerald-100 text-emerald-800;
+}
+
+.tag-gluten-free {
+  @apply bg-blue-100 text-blue-800;
+}
+
+.tag-popular {
+  @apply bg-sunset-100 text-sunset-700;
+}
