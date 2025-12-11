@@ -38,8 +38,8 @@ export default function HomeClient({ trucks, venues, schedule }: { trucks: Truck
         <div className="absolute inset-0 opacity-10"><svg className="w-full h-full" viewBox="0 0 1440 600" preserveAspectRatio="xMidYMid slice"><path d="M0 600 L200 300 L400 450 L600 200 L800 380 L1000 150 L1200 350 L1440 100 L1440 600 Z" fill="currentColor" /></svg></div>
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 lg:py-32">
           <div className="max-w-3xl">
-            <h1 className="font-display text-5xl lg:text-7xl font-bold mb-6">What&apos;s Rollin&apos;<span className="block text-sunset-400">Local</span></h1>
-            <p className="text-xl lg:text-2xl text-ridge-100 mb-8">Your guide to food trucks, breweries &amp; events in WNC</p>
+            <h1 className="font-display text-5xl lg:text-7xl font-bold mb-6">Henderson County<span className="block text-sunset-400">Food Trucks</span></h1>
+            <p className="text-xl lg:text-2xl text-ridge-100 mb-8">Discover where your favorite food trucks are serving today at local breweries and events across Hendersonville, Mills River, and Flat Rock.</p>
             <div className="flex flex-wrap gap-4">
               <a href="#today" className="inline-flex items-center px-6 py-3 bg-sunset-500 hover:bg-sunset-600 text-white font-semibold rounded-full transition-all hover:scale-105 shadow-lg">Find Trucks Today</a>
               <a href="#trucks" className="inline-flex items-center px-6 py-3 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-full border border-white/30">Browse All Trucks</a>
@@ -109,17 +109,17 @@ export default function HomeClient({ trucks, venues, schedule }: { trucks: Truck
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="font-display text-4xl lg:text-5xl font-bold text-stone-900 mb-4">All Food Trucks</h2>
-            <p className="text-lg text-stone-600 mb-8">Explore all the amazing food trucks in WNC</p>
+            <p className="text-lg text-stone-600 mb-8">Explore all the amazing food trucks in Henderson County</p>
             {cuisineTypes.length > 1 && <div className="flex flex-wrap justify-center gap-2">{cuisineTypes.map(type => <button key={type} onClick={() => setCuisineFilter(type)} className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${cuisineFilter === type ? 'bg-ridge-600 text-white shadow-md' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'}`}>{type === 'all' ? 'All Cuisines' : type}</button>)}</div>}
           </div>
-          {filteredTrucks.length === 0 ? <p className="text-center text-stone-500 py-12">No trucks found. Add some in the admin panel!</p> : <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">{filteredTrucks.map(truck => <TruckCard key={truck.id} truck={truck} schedule={schedule} venues={venues} />)}</div>}
+          {filteredTrucks.length === 0 ? <p className="text-center text-stone-500 py-12">No trucks found. Add some in your Google Sheet!</p> : <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">{filteredTrucks.map(truck => <TruckCard key={truck.id} truck={truck} schedule={schedule} venues={venues} />)}</div>}
         </div>
       </section>
 
       <section id="venues" className="py-16 lg:py-24 bg-stone-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
-            <h2 className="font-display text-4xl lg:text-5xl font-bold text-stone-900 mb-4">Venues &amp; Breweries</h2>
+            <h2 className="font-display text-4xl lg:text-5xl font-bold text-stone-900 mb-4">Venues & Breweries</h2>
             <p className="text-lg text-stone-600">Local spots that regularly host food trucks</p>
           </div>
           {venues.length === 0 ? <p className="text-center text-stone-500 py-12">No venues found.</p> : <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">{venues.map(venue => <VenueCard key={venue.id} venue={venue} schedule={schedule} trucks={trucks} />)}</div>}
@@ -129,8 +129,8 @@ export default function HomeClient({ trucks, venues, schedule }: { trucks: Truck
       <section className="bg-gradient-to-br from-ridge-700 to-ridge-900 text-white py-16 lg:py-24">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="font-display text-3xl lg:text-5xl font-bold mb-6">Own a Food Truck?</h2>
-          <p className="text-lg text-ridge-200 mb-8">Get your truck listed and reach more hungry customers!</p>
-          <a href="mailto:hello@whatsrollinlocal.com?subject=Add My Food Truck" className="inline-flex items-center px-8 py-4 bg-sunset-500 hover:bg-sunset-600 text-white font-semibold rounded-full transition-all hover:scale-105 shadow-lg">Contact Us</a>
+          <p className="text-lg text-ridge-200 mb-8">Get your truck listed and keep your schedule updated!</p>
+          <a href="mailto:hello@hendersonfoodtrucks.com?subject=Add My Food Truck" className="inline-flex items-center px-8 py-4 bg-sunset-500 hover:bg-sunset-600 text-white font-semibold rounded-full transition-all hover:scale-105 shadow-lg">Contact Us</a>
         </div>
       </section>
 

@@ -1,31 +1,32 @@
-import type { Metadata } from 'next'
-import './globals.css'
+import type { Metadata } from 'next';
+import { Fredoka, Source_Sans_3 } from 'next/font/google';
+import './globals.css';
+
+const fredoka = Fredoka({
+  subsets: ['latin'],
+  weight: ['600', '700'],
+  variable: '--font-display',
+});
+
+const sourceSans = Source_Sans_3({
+  subsets: ['latin'],
+  weight: ['400', '600'],
+  variable: '--font-body',
+});
 
 export const metadata: Metadata = {
-  title: 'Henderson County Food Trucks | Find Food Trucks in Hendersonville, NC',
-  description: 'Discover food trucks in Henderson County, NC. Find out where your favorite trucks are serving today at local breweries and events in Hendersonville, Mills River, and Flat Rock.',
-  keywords: 'food trucks, Henderson County, Hendersonville, NC, North Carolina, food truck finder, breweries, local food',
-  openGraph: {
-    title: 'Henderson County Food Trucks',
-    description: 'Find food trucks at local breweries and events in Henderson County, NC',
-    type: 'website',
-  },
-}
+  title: "What's Rollin' Local | Food Trucks in WNC",
+  description: 'Your guide to food trucks, breweries & events in Western North Carolina. Find where your favorite food trucks are serving today.',
+};
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <head>
-        <link rel="icon" href="/favicon.ico" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-      </head>
-      <body className="min-h-screen bg-stone-50">
-        {children}
-      </body>
+    <html lang="en" className={`${fredoka.variable} ${sourceSans.variable}`}>
+      <body className="font-body antialiased">{children}</body>
     </html>
-  )
+  );
 }
