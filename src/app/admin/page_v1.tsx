@@ -316,67 +316,11 @@ function VenuesTab({ venues, onUpdate, showMessage }: { venues: Venue[]; onUpdat
   );
 }
 
-type ScheduleMode = 'single' | 'multiple' | 'recurring';
-
 function ScheduleTab({ schedule, trucks, venues, onUpdate, showMessage }: { schedule: ScheduleEntry[]; trucks: Truck[]; venues: Venue[]; onUpdate: () => void; showMessage: (m: string) => void }) {
   const [editing, setEditing] = useState<string | null>(null);
-  const [mode, setMode] = useState<ScheduleMode>('single');
-  const [form, setForm] = useState({ 
-    truck_id: '', 
-    venue_id: '', 
-    date: '', 
-    start_time: '17:00', 
-    end_time: '21:00', 
-    event_name: '' 
-  });
-  const [selectedDates, setSelectedDates] = useState<string[]>([]);
-  const [recurringDay, setRecurringDay] = useState<number>(0); // 0 = Sunday, 1 = Monday, etc.
-  const [recurringEndDate, setRecurringEndDate] = useState('');
+  const [form, setForm] = useState({ truck_id: '', venue_id: '', date: '', start_time: '17:00', end_time: '21:00', event_name: '' });
 
   const today = new Date().toISOString().split('T')[0];
-  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-
-  function getNextNDays(n: number): { date: string; dayName: string; display: string }[] {
-    const days = [];
-    for (let i = 0; i < n; i++) {
-      const d = new Date();
-      d.setDate(d.getDate() + i);
-      const dateStr = d.toISOString().split('T')[0];
-      days.push({
-        date: dateStr,
-        dayName: dayNames[d.getDay()],
-        display: d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-      });
-    }
-    return days;
-  }
-
-  function getRecurringDates(dayOfWeek: number, endDate: string): string[] {
-    const dates: string[] = [];
-    const end = new Date(endDate + 'T12:00:00');
-    const current = new Date();
-    
-    // Find the next occurrence of the day
-    while (current.getDay() !== dayOfWeek) {
-      current.setDate(current.getDate() + 1);
-    }
-    
-    // Add all occurrences until end date
-    while (current <= end) {
-      dates.push(current.toISOString().split('T')[0]);
-      current.setDate(current.getDate() + 7);
-    }
-    
-    return dates;
-  }
-
-  function toggleDate(date: string) {
-    setSelectedDates(prev => 
-      prev.includes(date) 
-        ? prev.filter(d => d !== date)
-        : [...prev, date].sort()
-    );
-  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -384,41 +328,12 @@ function ScheduleTab({ schedule, trucks, venues, onUpdate, showMessage }: { sche
       if (editing) {
         await updateScheduleEntry(editing, form);
         showMessage('Schedule updated!');
-        setForm({ truck_id: '', venue_id: '', date: '', start_time: '17:00', end_time: '21:00', event_name: '' });
-        setEditing(null);
       } else {
-        let datesToAdd: string[] = [];
-        
-        if (mode === 'single') {
-          datesToAdd = [form.date];
-        } else if (mode === 'multiple') {
-          datesToAdd = selectedDates;
-        } else if (mode === 'recurring') {
-          datesToAdd = getRecurringDates(recurringDay, recurringEndDate);
-        }
-        
-        if (datesToAdd.length === 0) {
-          showMessage('Please select at least one date');
-          return;
-        }
-        
-        // Add entry for each date
-        for (const date of datesToAdd) {
-          await addScheduleEntry({
-            truck_id: form.truck_id,
-            venue_id: form.venue_id,
-            date,
-            start_time: form.start_time,
-            end_time: form.end_time,
-            event_name: form.event_name || null,
-          });
-        }
-        
-        showMessage(`Added ${datesToAdd.length} schedule ${datesToAdd.length === 1 ? 'entry' : 'entries'}!`);
-        setForm({ truck_id: '', venue_id: '', date: '', start_time: '17:00', end_time: '21:00', event_name: '' });
-        setSelectedDates([]);
-        setRecurringEndDate('');
+        await addScheduleEntry(form);
+        showMessage('Schedule added!');
       }
+      setForm({ truck_id: '', venue_id: '', date: '', start_time: '17:00', end_time: '21:00', event_name: '' });
+      setEditing(null);
       onUpdate();
     } catch (err) {
       showMessage('Error: ' + (err as Error).message);
@@ -438,7 +353,6 @@ function ScheduleTab({ schedule, trucks, venues, onUpdate, showMessage }: { sche
 
   function startEdit(entry: ScheduleEntry) {
     setEditing(entry.id);
-    setMode('single');
     setForm({
       truck_id: entry.truck_id,
       venue_id: entry.venue_id,
@@ -457,8 +371,6 @@ function ScheduleTab({ schedule, trucks, venues, onUpdate, showMessage }: { sche
 
   const upcomingSchedule = schedule.filter(s => s.date >= today);
   const pastSchedule = schedule.filter(s => s.date < today);
-
-  const next30Days = getNextNDays(30);
 
   return (
     <div className="grid lg:grid-cols-3 gap-6">
@@ -490,81 +402,10 @@ function ScheduleTab({ schedule, trucks, venues, onUpdate, showMessage }: { sche
                   {venues.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
                 </select>
               </div>
-
-              {/* Date Mode Selection - only show when not editing */}
-              {!editing && (
-                <div>
-                  <label className="block text-sm font-medium text-stone-700 mb-2">Date Selection Mode</label>
-                  <div className="flex gap-2">
-                    <button type="button" onClick={() => setMode('single')} className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${mode === 'single' ? 'bg-ridge-600 text-white' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'}`}>
-                      Single
-                    </button>
-                    <button type="button" onClick={() => setMode('multiple')} className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${mode === 'multiple' ? 'bg-ridge-600 text-white' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'}`}>
-                      Multiple
-                    </button>
-                    <button type="button" onClick={() => setMode('recurring')} className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${mode === 'recurring' ? 'bg-ridge-600 text-white' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'}`}>
-                      Weekly
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Single Date */}
-              {(mode === 'single' || editing) && (
-                <div>
-                  <label className="block text-sm font-medium text-stone-700 mb-1">Date *</label>
-                  <input type="date" required value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} min={today} className="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-ridge-500 focus:border-ridge-500" />
-                </div>
-              )}
-
-              {/* Multiple Dates */}
-              {mode === 'multiple' && !editing && (
-                <div>
-                  <label className="block text-sm font-medium text-stone-700 mb-2">
-                    Select Dates ({selectedDates.length} selected)
-                  </label>
-                  <div className="max-h-48 overflow-y-auto border border-stone-200 rounded-lg p-2 space-y-1">
-                    {next30Days.map(({ date, display }) => (
-                      <label key={date} className={`flex items-center gap-2 p-2 rounded cursor-pointer transition-colors ${selectedDates.includes(date) ? 'bg-ridge-100' : 'hover:bg-stone-50'}`}>
-                        <input 
-                          type="checkbox" 
-                          checked={selectedDates.includes(date)}
-                          onChange={() => toggleDate(date)}
-                          className="w-4 h-4 text-ridge-600 rounded focus:ring-ridge-500"
-                        />
-                        <span className="text-sm">{display}</span>
-                      </label>
-                    ))}
-                  </div>
-                  {selectedDates.length > 0 && (
-                    <button type="button" onClick={() => setSelectedDates([])} className="mt-2 text-sm text-stone-500 hover:text-stone-700">
-                      Clear selection
-                    </button>
-                  )}
-                </div>
-              )}
-
-              {/* Recurring Weekly */}
-              {mode === 'recurring' && !editing && (
-                <>
-                  <div>
-                    <label className="block text-sm font-medium text-stone-700 mb-1">Every *</label>
-                    <select value={recurringDay} onChange={e => setRecurringDay(parseInt(e.target.value))} className="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-ridge-500 focus:border-ridge-500">
-                      {dayNames.map((day, i) => <option key={day} value={i}>{day}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-stone-700 mb-1">Until *</label>
-                    <input type="date" required={mode === 'recurring'} value={recurringEndDate} onChange={e => setRecurringEndDate(e.target.value)} min={today} className="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-ridge-500 focus:border-ridge-500" />
-                    {recurringEndDate && (
-                      <p className="mt-1 text-xs text-stone-500">
-                        Will create {getRecurringDates(recurringDay, recurringEndDate).length} entries
-                      </p>
-                    )}
-                  </div>
-                </>
-              )}
-
+              <div>
+                <label className="block text-sm font-medium text-stone-700 mb-1">Date *</label>
+                <input type="date" required value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} min={today} className="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-ridge-500 focus:border-ridge-500" />
+              </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-sm font-medium text-stone-700 mb-1">Start Time *</label>
@@ -580,9 +421,7 @@ function ScheduleTab({ schedule, trucks, venues, onUpdate, showMessage }: { sche
                 <input type="text" value={form.event_name} onChange={e => setForm({ ...form, event_name: e.target.value })} className="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-ridge-500 focus:border-ridge-500" placeholder="e.g., Farmers Market, Live Music Night" />
               </div>
               <div className="flex gap-2">
-                <button type="submit" className="flex-1 bg-ridge-600 hover:bg-ridge-700 text-white py-2 px-4 rounded-lg font-semibold transition-colors">
-                  {editing ? 'Update' : mode === 'single' ? 'Add to Schedule' : `Add ${mode === 'multiple' ? selectedDates.length : getRecurringDates(recurringDay, recurringEndDate).length || 0} Entries`}
-                </button>
+                <button type="submit" className="flex-1 bg-ridge-600 hover:bg-ridge-700 text-white py-2 px-4 rounded-lg font-semibold transition-colors">{editing ? 'Update' : 'Add to Schedule'}</button>
                 {editing && <button type="button" onClick={() => { setEditing(null); setForm({ truck_id: '', venue_id: '', date: '', start_time: '17:00', end_time: '21:00', event_name: '' }); }} className="px-4 py-2 bg-stone-200 hover:bg-stone-300 rounded-lg">Cancel</button>}
               </div>
             </form>
