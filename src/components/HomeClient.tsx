@@ -7,6 +7,7 @@ import Footer from '@/components/Footer';
 import TruckCard from '@/components/TruckCard';
 import ScheduleCard from '@/components/ScheduleCard';
 import VenueCard from '@/components/VenueCard';
+import { trackCuisineFilter, trackCtaClick } from '@/lib/analytics';
 
 const MapSection = dynamic(() => import('@/components/MapSection'), { 
   ssr: false,
@@ -41,8 +42,8 @@ export default function HomeClient({ trucks, venues, schedule }: { trucks: Truck
             <h1 className="font-display text-5xl lg:text-7xl font-bold mb-6">What&apos;s Rollin&apos;<span className="block text-sunset-400">Local</span></h1>
             <p className="text-xl lg:text-2xl text-ridge-100 mb-8">Your guide to food trucks, breweries &amp; events in WNC</p>
             <div className="flex flex-wrap gap-4">
-              <a href="#today" className="inline-flex items-center px-6 py-3 bg-sunset-500 hover:bg-sunset-600 text-white font-semibold rounded-full transition-all hover:scale-105 shadow-lg">Find Trucks Today</a>
-              <a href="#trucks" className="inline-flex items-center px-6 py-3 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-full border border-white/30">Browse All Trucks</a>
+              <a href="#today" onClick={() => trackCtaClick('find_trucks_today')} className="inline-flex items-center px-6 py-3 bg-sunset-500 hover:bg-sunset-600 text-white font-semibold rounded-full transition-all hover:scale-105 shadow-lg">Find Trucks Today</a>
+              <a href="#trucks" onClick={() => trackCtaClick('browse_all_trucks')} className="inline-flex items-center px-6 py-3 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-full border border-white/30">Browse All Trucks</a>
             </div>
           </div>
           <div className="mt-16 grid grid-cols-3 gap-8 max-w-lg">
@@ -110,7 +111,7 @@ export default function HomeClient({ trucks, venues, schedule }: { trucks: Truck
           <div className="text-center mb-12">
             <h2 className="font-display text-4xl lg:text-5xl font-bold text-stone-900 mb-4">All Food Trucks</h2>
             <p className="text-lg text-stone-600 mb-8">Explore all the amazing food trucks in WNC</p>
-            {cuisineTypes.length > 1 && <div className="flex flex-wrap justify-center gap-2">{cuisineTypes.map(type => <button key={type} onClick={() => setCuisineFilter(type)} className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${cuisineFilter === type ? 'bg-ridge-600 text-white shadow-md' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'}`}>{type === 'all' ? 'All Cuisines' : type}</button>)}</div>}
+            {cuisineTypes.length > 1 && <div className="flex flex-wrap justify-center gap-2">{cuisineTypes.map(type => <button key={type} onClick={() => { setCuisineFilter(type); trackCuisineFilter(type); }} className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${cuisineFilter === type ? 'bg-ridge-600 text-white shadow-md' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'}`}>{type === 'all' ? 'All Cuisines' : type}</button>)}</div>}
           </div>
           {filteredTrucks.length === 0 ? <p className="text-center text-stone-500 py-12">No trucks found. Add some in the admin panel!</p> : <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">{filteredTrucks.map(truck => <TruckCard key={truck.id} truck={truck} schedule={schedule} venues={venues} />)}</div>}
         </div>
@@ -130,7 +131,7 @@ export default function HomeClient({ trucks, venues, schedule }: { trucks: Truck
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="font-display text-3xl lg:text-5xl font-bold mb-6">Own a Food Truck?</h2>
           <p className="text-lg text-ridge-200 mb-8">Get your truck listed and reach more hungry customers!</p>
-          <a href="mailto:hello@whatsrollinlocal.com?subject=Add My Food Truck" className="inline-flex items-center px-8 py-4 bg-sunset-500 hover:bg-sunset-600 text-white font-semibold rounded-full transition-all hover:scale-105 shadow-lg">Contact Us</a>
+          <a href="mailto:hello@whatsrollinlocal.com?subject=Add My Food Truck" onClick={() => trackCtaClick('contact_us')} className="inline-flex items-center px-8 py-4 bg-sunset-500 hover:bg-sunset-600 text-white font-semibold rounded-full transition-all hover:scale-105 shadow-lg">Contact Us</a>
         </div>
       </section>
 
