@@ -135,6 +135,10 @@ export default function HomeClient({ trucks, venues, schedule }: { trucks: Truck
         </div>
       </section>
 
+      <div className="bg-stone-100 py-6 text-center">
+        <p className="text-stone-600 text-sm">Schedules may change — follow your favorite trucks on social for the latest!</p>
+      </div>
+
       <Footer />
     </main>
   );
