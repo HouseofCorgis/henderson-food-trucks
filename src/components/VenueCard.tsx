@@ -1,5 +1,7 @@
 'use client';
 
+import { trackVenueMapClick, trackVenueWebsiteClick } from '@/lib/analytics';
+
 const icons: Record<string, string> = { 'brewery': '🍺', 'winery': '🍷', 'event-space': '🎪', 'park': '🌳', 'market': '🛒', 'other': '📍' };
 
 interface Venue { id: string; name: string; description: string; address: string; lat: number; lng: number; type: string; website?: string; }
@@ -29,8 +31,8 @@ export default function VenueCard({ venue, schedule, trucks }: { venue: Venue; s
           </div>
         )}
         <div className="flex gap-2">
-          <a href={`https://www.google.com/maps/dir/?api=1&destination=${venue.lat},${venue.lng}`} target="_blank" rel="noopener noreferrer" className="flex-1 flex items-center justify-center gap-1 py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-lg text-sm font-medium">Map</a>
-          {venue.website && <a href={venue.website} target="_blank" rel="noopener noreferrer" className="flex-1 flex items-center justify-center gap-1 py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-lg text-sm font-medium">Website</a>}
+          <a href={`https://www.google.com/maps/dir/?api=1&destination=${venue.lat},${venue.lng}`} target="_blank" rel="noopener noreferrer" onClick={() => trackVenueMapClick(venue.name)} className="flex-1 flex items-center justify-center gap-1 py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-lg text-sm font-medium">Map</a>
+          {venue.website && <a href={venue.website} target="_blank" rel="noopener noreferrer" onClick={() => trackVenueWebsiteClick(venue.name, venue.website!)} className="flex-1 flex items-center justify-center gap-1 py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-lg text-sm font-medium">Website</a>}
         </div>
       </div>
     </div>
