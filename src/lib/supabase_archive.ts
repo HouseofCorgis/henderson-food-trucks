@@ -5,59 +5,6 @@ const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// Super admin email - can see and edit everything
-export const SUPER_ADMIN_EMAIL = 'jamminjessjams@gmail.com';
-
-// ============ AUTH FUNCTIONS ============
-
-export async function signIn(email: string, password: string) {
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
-  if (error) throw error;
-  return data;
-}
-
-export async function signOut() {
-  const { error } = await supabase.auth.signOut();
-  if (error) throw error;
-}
-
-export async function getSession() {
-  const { data: { session } } = await supabase.auth.getSession();
-  return session;
-}
-
-export async function getCurrentUser() {
-  const { data: { user } } = await supabase.auth.getUser();
-  return user;
-}
-
-export function isSuperAdmin(email: string | undefined) {
-  return email === SUPER_ADMIN_EMAIL;
-}
-
-// Create a new truck owner account (super admin only)
-export async function createTruckOwnerAccount(email: string, password: string, truckId: string) {
-  // First create the user via Supabase Auth
-  // Note: In production, you'd use Supabase Edge Functions or admin API for this
-  // For now, we'll use the invite method from the Supabase dashboard
-  
-  // Link the truck to the user after they're created
-  const { data, error } = await supabase
-    .from('trucks')
-    .update({ user_id: email }) // We'll store email temporarily, update to actual user_id after first login
-    .eq('id', truckId)
-    .select()
-    .single();
-  
-  if (error) throw error;
-  return data;
-}
-
-// ============ INTERFACES ============
-
 export interface Truck {
   id: string;
   name: string;
@@ -66,7 +13,6 @@ export interface Truck {
   phone: string | null;
   facebook: string | null;
   instagram: string | null;
-  user_id: string | null;
 }
 
 export interface Venue {
@@ -91,8 +37,6 @@ export interface ScheduleEntry {
   event_name: string | null;
 }
 
-// ============ PUBLIC DATA FUNCTIONS ============
-
 export async function getTrucks(): Promise<Truck[]> {
   const { data, error } = await supabase.from('trucks').select('*').order('name');
   if (error) { console.error('Error fetching trucks:', error); return []; }
@@ -108,45 +52,6 @@ export async function getVenues(): Promise<Venue[]> {
 export async function getSchedule(): Promise<ScheduleEntry[]> {
   const today = new Date().toISOString().split('T')[0];
   const { data, error } = await supabase.from('schedule').select('*').gte('date', today).order('date').order('start_time');
-  if (error) { console.error('Error fetching schedule:', error); return []; }
-  return data || [];
-}
-
-// ============ ADMIN FUNCTIONS ============
-
-// Get trucks for a specific user (or all if super admin)
-export async function getTrucksForUser(userEmail: string): Promise<Truck[]> {
-  if (isSuperAdmin(userEmail)) {
-    return getTrucks();
-  }
-  
-  const { data, error } = await supabase
-    .from('trucks')
-    .select('*')
-    .eq('user_id', userEmail)
-    .order('name');
-  
-  if (error) { console.error('Error fetching trucks:', error); return []; }
-  return data || [];
-}
-
-// Get schedule for a specific user's trucks (or all if super admin)
-export async function getScheduleForUser(userEmail: string, truckIds: string[]): Promise<ScheduleEntry[]> {
-  if (isSuperAdmin(userEmail)) {
-    const { data, error } = await supabase.from('schedule').select('*').order('date').order('start_time');
-    if (error) { console.error('Error fetching schedule:', error); return []; }
-    return data || [];
-  }
-  
-  if (truckIds.length === 0) return [];
-  
-  const { data, error } = await supabase
-    .from('schedule')
-    .select('*')
-    .in('truck_id', truckIds)
-    .order('date')
-    .order('start_time');
-  
   if (error) { console.error('Error fetching schedule:', error); return []; }
   return data || [];
 }
@@ -200,30 +105,4 @@ export async function updateScheduleEntry(id: string, entry: Partial<ScheduleEnt
 export async function deleteScheduleEntry(id: string) {
   const { error } = await supabase.from('schedule').delete().eq('id', id);
   if (error) throw error;
-}
-
-// Assign a truck to a user (super admin only)
-export async function assignTruckToUser(truckId: string, userEmail: string) {
-  const { data, error } = await supabase
-    .from('trucks')
-    .update({ user_id: userEmail })
-    .eq('id', truckId)
-    .select()
-    .single();
-  
-  if (error) throw error;
-  return data;
-}
-
-// Remove user assignment from truck (super admin only)
-export async function unassignTruckFromUser(truckId: string) {
-  const { data, error } = await supabase
-    .from('trucks')
-    .update({ user_id: null })
-    .eq('id', truckId)
-    .select()
-    .single();
-  
-  if (error) throw error;
-  return data;
 }

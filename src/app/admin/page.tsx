@@ -1,33 +1,90 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { supabase, Truck, Venue, ScheduleEntry, addTruck, updateTruck, deleteTruck, addVenue, updateVenue, deleteVenue, addScheduleEntry, updateScheduleEntry, deleteScheduleEntry } from '@/lib/supabase';
+import { useRouter } from 'next/navigation';
+import { 
+  supabase, 
+  Truck, 
+  Venue, 
+  ScheduleEntry, 
+  addTruck, 
+  updateTruck, 
+  deleteTruck, 
+  addVenue, 
+  updateVenue, 
+  deleteVenue, 
+  addScheduleEntry, 
+  updateScheduleEntry, 
+  deleteScheduleEntry,
+  getCurrentUser,
+  signOut,
+  isSuperAdmin,
+  getTrucksForUser,
+  getScheduleForUser,
+  assignTruckToUser,
+  unassignTruckFromUser,
+  SUPER_ADMIN_EMAIL
+} from '@/lib/supabase';
+import type { User } from '@supabase/supabase-js';
 
-type Tab = 'trucks' | 'venues' | 'schedule';
+type Tab = 'trucks' | 'venues' | 'schedule' | 'users';
 
 export default function AdminPage() {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>('schedule');
   const [trucks, setTrucks] = useState<Truck[]>([]);
+  const [allTrucks, setAllTrucks] = useState<Truck[]>([]); // For super admin
   const [venues, setVenues] = useState<Venue[]>([]);
   const [schedule, setSchedule] = useState<ScheduleEntry[]>([]);
-  const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
+  const router = useRouter();
+
+  const isAdmin = isSuperAdmin(user?.email);
 
   useEffect(() => {
-    loadData();
+    checkAuth();
   }, []);
 
-  async function loadData() {
+  async function checkAuth() {
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+      router.push('/admin/login');
+      return;
+    }
+    setUser(currentUser);
+    await loadData(currentUser);
+  }
+
+  async function loadData(currentUser: User) {
     setLoading(true);
-    const [{ data: t }, { data: v }, { data: s }] = await Promise.all([
-      supabase.from('trucks').select('*').order('name'),
-      supabase.from('venues').select('*').order('name'),
-      supabase.from('schedule').select('*').order('date').order('start_time'),
-    ]);
-    setTrucks(t || []);
+    const userEmail = currentUser.email || '';
+    
+    // Load venues (everyone can see all venues)
+    const { data: v } = await supabase.from('venues').select('*').order('name');
     setVenues(v || []);
-    setSchedule(s || []);
+    
+    // Load trucks based on user role
+    const userTrucks = await getTrucksForUser(userEmail);
+    setTrucks(userTrucks);
+    
+    // Super admin gets all trucks for the users tab
+    if (isSuperAdmin(userEmail)) {
+      const { data: allT } = await supabase.from('trucks').select('*').order('name');
+      setAllTrucks(allT || []);
+    }
+    
+    // Load schedule based on user role
+    const truckIds = userTrucks.map(t => t.id);
+    const userSchedule = await getScheduleForUser(userEmail, truckIds);
+    setSchedule(userSchedule);
+    
     setLoading(false);
+  }
+
+  async function handleSignOut() {
+    await signOut();
+    router.push('/admin/login');
   }
 
   function showMessage(msg: string) {
@@ -36,15 +93,36 @@ export default function AdminPage() {
   }
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center bg-stone-100"><div className="text-xl text-stone-600">Loading...</div></div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-stone-100">
+        <div className="text-xl text-stone-600">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null;
   }
 
   return (
     <div className="min-h-screen bg-stone-100">
       <header className="bg-ridge-700 text-white p-4 shadow-lg">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <h1 className="text-2xl font-display font-bold">🚚 Food Truck Admin</h1>
-          <a href="/" className="text-ridge-200 hover:text-white text-sm">← Back to site</a>
+          <div>
+            <h1 className="text-2xl font-display font-bold">🚚 Food Truck Admin</h1>
+            <p className="text-ridge-200 text-sm">
+              {isAdmin ? '👑 Super Admin' : `Managing: ${trucks.map(t => t.name).join(', ') || 'No trucks assigned'}`}
+            </p>
+          </div>
+          <div className="flex items-center gap-4">
+            <span className="text-ridge-200 text-sm hidden sm:block">{user.email}</span>
+            <button
+              onClick={handleSignOut}
+              className="px-4 py-2 bg-ridge-600 hover:bg-ridge-500 rounded-lg text-sm transition-colors"
+            >
+              Sign Out
+            </button>
+          </div>
         </div>
       </header>
 
@@ -53,8 +131,8 @@ export default function AdminPage() {
       )}
 
       <div className="max-w-6xl mx-auto p-4">
-        <div className="flex gap-2 mb-6">
-          {(['schedule', 'trucks', 'venues'] as Tab[]).map(tab => (
+        <div className="flex flex-wrap gap-2 mb-6">
+          {(['schedule', 'trucks', ...(isAdmin ? ['venues', 'users'] : [])] as Tab[]).map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -64,20 +142,64 @@ export default function AdminPage() {
                   : 'bg-white text-stone-600 hover:bg-stone-50'
               }`}
             >
-              {tab} ({tab === 'trucks' ? trucks.length : tab === 'venues' ? venues.length : schedule.length})
+              {tab === 'users' ? '👥 Manage Users' : tab} 
+              {tab === 'trucks' && ` (${trucks.length})`}
+              {tab === 'venues' && ` (${venues.length})`}
+              {tab === 'schedule' && ` (${schedule.length})`}
             </button>
           ))}
         </div>
 
-        {activeTab === 'trucks' && <TrucksTab trucks={trucks} onUpdate={loadData} showMessage={showMessage} />}
-        {activeTab === 'venues' && <VenuesTab venues={venues} onUpdate={loadData} showMessage={showMessage} />}
-        {activeTab === 'schedule' && <ScheduleTab schedule={schedule} trucks={trucks} venues={venues} onUpdate={loadData} showMessage={showMessage} />}
+        <div className="mb-4">
+          <a href="/" className="text-ridge-600 hover:text-ridge-700 text-sm">
+            ← Back to site
+          </a>
+        </div>
+
+        {activeTab === 'trucks' && (
+          <TrucksTab 
+            trucks={trucks} 
+            isAdmin={isAdmin} 
+            onUpdate={() => user && loadData(user)} 
+            showMessage={showMessage} 
+          />
+        )}
+        {activeTab === 'venues' && isAdmin && (
+          <VenuesTab 
+            venues={venues} 
+            onUpdate={() => user && loadData(user)} 
+            showMessage={showMessage} 
+          />
+        )}
+        {activeTab === 'schedule' && (
+          <ScheduleTab 
+            schedule={schedule} 
+            trucks={trucks} 
+            venues={venues} 
+            isAdmin={isAdmin}
+            onUpdate={() => user && loadData(user)} 
+            showMessage={showMessage} 
+          />
+        )}
+        {activeTab === 'users' && isAdmin && (
+          <UsersTab 
+            trucks={allTrucks} 
+            onUpdate={() => user && loadData(user)} 
+            showMessage={showMessage} 
+          />
+        )}
       </div>
     </div>
   );
 }
 
-function TrucksTab({ trucks, onUpdate, showMessage }: { trucks: Truck[]; onUpdate: () => void; showMessage: (m: string) => void }) {
+// ============ TRUCKS TAB ============
+function TrucksTab({ trucks, isAdmin, onUpdate, showMessage }: { 
+  trucks: Truck[]; 
+  isAdmin: boolean;
+  onUpdate: () => void; 
+  showMessage: (m: string) => void 
+}) {
   const [editing, setEditing] = useState<string | null>(null);
   const [form, setForm] = useState({ name: '', description: '', cuisine_type: '', phone: '', facebook: '', instagram: '' });
 
@@ -89,7 +211,7 @@ function TrucksTab({ trucks, onUpdate, showMessage }: { trucks: Truck[]; onUpdat
       if (editing) {
         await updateTruck(editing, form);
         showMessage('Truck updated!');
-      } else {
+      } else if (isAdmin) {
         await addTruck(form);
         showMessage('Truck added!');
       }
@@ -124,42 +246,103 @@ function TrucksTab({ trucks, onUpdate, showMessage }: { trucks: Truck[]; onUpdat
     });
   }
 
+  // Non-admin users without trucks assigned
+  if (!isAdmin && trucks.length === 0) {
+    return (
+      <div className="bg-white rounded-xl shadow-sm p-8 text-center">
+        <p className="text-stone-500">No trucks assigned to your account yet.</p>
+        <p className="text-stone-400 text-sm mt-2">Contact the admin to get your truck linked.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="grid lg:grid-cols-3 gap-6">
       <div className="lg:col-span-1">
         <div className="bg-white rounded-xl shadow-sm p-6">
-          <h2 className="text-lg font-bold text-stone-900 mb-4">{editing ? 'Edit Truck' : 'Add New Truck'}</h2>
+          <h2 className="text-lg font-bold text-stone-900 mb-4">
+            {editing ? 'Edit Truck' : (isAdmin ? 'Add New Truck' : 'Edit Your Truck')}
+          </h2>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-stone-700 mb-1">Name *</label>
-              <input type="text" required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-ridge-500 focus:border-ridge-500" />
+              <input 
+                type="text" 
+                required 
+                value={form.name} 
+                onChange={e => setForm({ ...form, name: e.target.value })} 
+                disabled={!isAdmin && !editing}
+                className="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-ridge-500 focus:border-ridge-500 disabled:bg-stone-100" 
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-stone-700 mb-1">Description</label>
-              <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={2} className="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-ridge-500 focus:border-ridge-500" />
+              <textarea 
+                value={form.description} 
+                onChange={e => setForm({ ...form, description: e.target.value })} 
+                rows={2} 
+                className="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-ridge-500 focus:border-ridge-500" 
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-stone-700 mb-1">Cuisine Type</label>
-              <select value={form.cuisine_type} onChange={e => setForm({ ...form, cuisine_type: e.target.value })} className="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-ridge-500 focus:border-ridge-500">
+              <select 
+                value={form.cuisine_type} 
+                onChange={e => setForm({ ...form, cuisine_type: e.target.value })} 
+                className="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-ridge-500 focus:border-ridge-500"
+              >
                 <option value="">Select...</option>
                 {cuisineTypes.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-stone-700 mb-1">Phone</label>
-              <input type="tel" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} className="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-ridge-500 focus:border-ridge-500" placeholder="(828) 555-0100" />
+              <input 
+                type="tel" 
+                value={form.phone} 
+                onChange={e => setForm({ ...form, phone: e.target.value })} 
+                className="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-ridge-500 focus:border-ridge-500" 
+                placeholder="(828) 555-0100" 
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-stone-700 mb-1">Facebook URL</label>
-              <input type="url" value={form.facebook} onChange={e => setForm({ ...form, facebook: e.target.value })} className="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-ridge-500 focus:border-ridge-500" placeholder="https://facebook.com/..." />
+              <input 
+                type="url" 
+                value={form.facebook} 
+                onChange={e => setForm({ ...form, facebook: e.target.value })} 
+                className="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-ridge-500 focus:border-ridge-500" 
+                placeholder="https://facebook.com/..." 
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-stone-700 mb-1">Instagram URL</label>
-              <input type="url" value={form.instagram} onChange={e => setForm({ ...form, instagram: e.target.value })} className="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-ridge-500 focus:border-ridge-500" placeholder="https://instagram.com/..." />
+              <input 
+                type="url" 
+                value={form.instagram} 
+                onChange={e => setForm({ ...form, instagram: e.target.value })} 
+                className="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-ridge-500 focus:border-ridge-500" 
+                placeholder="https://instagram.com/..." 
+              />
             </div>
             <div className="flex gap-2">
-              <button type="submit" className="flex-1 bg-ridge-600 hover:bg-ridge-700 text-white py-2 px-4 rounded-lg font-semibold transition-colors">{editing ? 'Update' : 'Add Truck'}</button>
-              {editing && <button type="button" onClick={() => { setEditing(null); setForm({ name: '', description: '', cuisine_type: '', phone: '', facebook: '', instagram: '' }); }} className="px-4 py-2 bg-stone-200 hover:bg-stone-300 rounded-lg">Cancel</button>}
+              {(isAdmin || editing) && (
+                <button 
+                  type="submit" 
+                  className="flex-1 bg-ridge-600 hover:bg-ridge-700 text-white py-2 px-4 rounded-lg font-semibold transition-colors"
+                >
+                  {editing ? 'Update' : 'Add Truck'}
+                </button>
+              )}
+              {editing && (
+                <button 
+                  type="button" 
+                  onClick={() => { setEditing(null); setForm({ name: '', description: '', cuisine_type: '', phone: '', facebook: '', instagram: '' }); }} 
+                  className="px-4 py-2 bg-stone-200 hover:bg-stone-300 rounded-lg"
+                >
+                  Cancel
+                </button>
+              )}
             </div>
           </form>
         </div>
@@ -167,7 +350,11 @@ function TrucksTab({ trucks, onUpdate, showMessage }: { trucks: Truck[]; onUpdat
 
       <div className="lg:col-span-2">
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-          <div className="p-4 border-b border-stone-200"><h2 className="font-bold text-stone-900">All Trucks ({trucks.length})</h2></div>
+          <div className="p-4 border-b border-stone-200">
+            <h2 className="font-bold text-stone-900">
+              {isAdmin ? `All Trucks (${trucks.length})` : 'Your Truck'}
+            </h2>
+          </div>
           {trucks.length === 0 ? (
             <div className="p-8 text-center text-stone-500">No trucks yet. Add your first one!</div>
           ) : (
@@ -176,11 +363,29 @@ function TrucksTab({ trucks, onUpdate, showMessage }: { trucks: Truck[]; onUpdat
                 <div key={truck.id} className="p-4 flex items-center justify-between hover:bg-stone-50">
                   <div>
                     <div className="font-semibold text-stone-900">{truck.name}</div>
-                    <div className="text-sm text-stone-500">{truck.cuisine_type || 'No cuisine set'} {truck.phone && `• ${truck.phone}`}</div>
+                    <div className="text-sm text-stone-500">
+                      {truck.cuisine_type || 'No cuisine set'} 
+                      {truck.phone && ` • ${truck.phone}`}
+                      {truck.user_id && isAdmin && (
+                        <span className="ml-2 text-ridge-600">• Assigned to: {truck.user_id}</span>
+                      )}
+                    </div>
                   </div>
                   <div className="flex gap-2">
-                    <button onClick={() => startEdit(truck)} className="px-3 py-1 text-sm bg-stone-100 hover:bg-stone-200 rounded-lg">Edit</button>
-                    <button onClick={() => handleDelete(truck.id)} className="px-3 py-1 text-sm bg-red-100 hover:bg-red-200 text-red-700 rounded-lg">Delete</button>
+                    <button 
+                      onClick={() => startEdit(truck)} 
+                      className="px-3 py-1 text-sm bg-stone-100 hover:bg-stone-200 rounded-lg"
+                    >
+                      Edit
+                    </button>
+                    {isAdmin && (
+                      <button 
+                        onClick={() => handleDelete(truck.id)} 
+                        className="px-3 py-1 text-sm bg-red-100 hover:bg-red-200 text-red-700 rounded-lg"
+                      >
+                        Delete
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -192,7 +397,12 @@ function TrucksTab({ trucks, onUpdate, showMessage }: { trucks: Truck[]; onUpdat
   );
 }
 
-function VenuesTab({ venues, onUpdate, showMessage }: { venues: Venue[]; onUpdate: () => void; showMessage: (m: string) => void }) {
+// ============ VENUES TAB (Admin Only) ============
+function VenuesTab({ venues, onUpdate, showMessage }: { 
+  venues: Venue[]; 
+  onUpdate: () => void; 
+  showMessage: (m: string) => void 
+}) {
   const [editing, setEditing] = useState<string | null>(null);
   const [form, setForm] = useState({ name: '', description: '', address: '', lat: '', lng: '', type: 'brewery', phone: '', website: '' });
 
@@ -316,9 +526,17 @@ function VenuesTab({ venues, onUpdate, showMessage }: { venues: Venue[]; onUpdat
   );
 }
 
+// ============ SCHEDULE TAB ============
 type ScheduleMode = 'single' | 'multiple' | 'recurring';
 
-function ScheduleTab({ schedule, trucks, venues, onUpdate, showMessage }: { schedule: ScheduleEntry[]; trucks: Truck[]; venues: Venue[]; onUpdate: () => void; showMessage: (m: string) => void }) {
+function ScheduleTab({ schedule, trucks, venues, isAdmin, onUpdate, showMessage }: { 
+  schedule: ScheduleEntry[]; 
+  trucks: Truck[]; 
+  venues: Venue[]; 
+  isAdmin: boolean;
+  onUpdate: () => void; 
+  showMessage: (m: string) => void 
+}) {
   const [editing, setEditing] = useState<string | null>(null);
   const [mode, setMode] = useState<ScheduleMode>('single');
   const [form, setForm] = useState({ 
@@ -330,11 +548,18 @@ function ScheduleTab({ schedule, trucks, venues, onUpdate, showMessage }: { sche
     event_name: '' 
   });
   const [selectedDates, setSelectedDates] = useState<string[]>([]);
-  const [recurringDay, setRecurringDay] = useState<number>(0); // 0 = Sunday, 1 = Monday, etc.
+  const [recurringDay, setRecurringDay] = useState<number>(0);
   const [recurringEndDate, setRecurringEndDate] = useState('');
 
   const today = new Date().toISOString().split('T')[0];
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+  // Auto-select truck if user only has one
+  useEffect(() => {
+    if (trucks.length === 1 && !form.truck_id) {
+      setForm(f => ({ ...f, truck_id: trucks[0].id }));
+    }
+  }, [trucks, form.truck_id]);
 
   function getNextNDays(n: number): { date: string; dayName: string; display: string }[] {
     const days = [];
@@ -356,12 +581,10 @@ function ScheduleTab({ schedule, trucks, venues, onUpdate, showMessage }: { sche
     const end = new Date(endDate + 'T12:00:00');
     const current = new Date();
     
-    // Find the next occurrence of the day
     while (current.getDay() !== dayOfWeek) {
       current.setDate(current.getDate() + 1);
     }
     
-    // Add all occurrences until end date
     while (current <= end) {
       dates.push(current.toISOString().split('T')[0]);
       current.setDate(current.getDate() + 7);
@@ -384,7 +607,7 @@ function ScheduleTab({ schedule, trucks, venues, onUpdate, showMessage }: { sche
       if (editing) {
         await updateScheduleEntry(editing, form);
         showMessage('Schedule updated!');
-        setForm({ truck_id: '', venue_id: '', date: '', start_time: '17:00', end_time: '21:00', event_name: '' });
+        setForm({ truck_id: trucks.length === 1 ? trucks[0].id : '', venue_id: '', date: '', start_time: '17:00', end_time: '21:00', event_name: '' });
         setEditing(null);
       } else {
         let datesToAdd: string[] = [];
@@ -402,7 +625,6 @@ function ScheduleTab({ schedule, trucks, venues, onUpdate, showMessage }: { sche
           return;
         }
         
-        // Add entry for each date
         for (const date of datesToAdd) {
           await addScheduleEntry({
             truck_id: form.truck_id,
@@ -415,7 +637,7 @@ function ScheduleTab({ schedule, trucks, venues, onUpdate, showMessage }: { sche
         }
         
         showMessage(`Added ${datesToAdd.length} schedule ${datesToAdd.length === 1 ? 'entry' : 'entries'}!`);
-        setForm({ truck_id: '', venue_id: '', date: '', start_time: '17:00', end_time: '21:00', event_name: '' });
+        setForm({ truck_id: trucks.length === 1 ? trucks[0].id : '', venue_id: '', date: '', start_time: '17:00', end_time: '21:00', event_name: '' });
         setSelectedDates([]);
         setRecurringEndDate('');
       }
@@ -460,133 +682,139 @@ function ScheduleTab({ schedule, trucks, venues, onUpdate, showMessage }: { sche
 
   const next30Days = getNextNDays(30);
 
+  // Check if user can add schedule
+  if (trucks.length === 0) {
+    return (
+      <div className="bg-white rounded-xl shadow-sm p-8 text-center">
+        <p className="text-stone-500">No trucks assigned to your account yet.</p>
+        <p className="text-stone-400 text-sm mt-2">Contact the admin to get your truck linked.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="grid lg:grid-cols-3 gap-6">
       <div className="lg:col-span-1">
         <div className="bg-white rounded-xl shadow-sm p-6">
           <h2 className="text-lg font-bold text-stone-900 mb-4">{editing ? 'Edit Schedule' : 'Add Schedule Entry'}</h2>
           
-          {trucks.length === 0 || venues.length === 0 ? (
-            <div className="text-stone-500 text-sm">
-              <p className="mb-2">Before adding schedule entries, you need:</p>
-              <ul className="list-disc list-inside">
-                {trucks.length === 0 && <li>At least one truck</li>}
-                {venues.length === 0 && <li>At least one venue</li>}
-              </ul>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-stone-700 mb-1">Truck *</label>
+              <select 
+                required 
+                value={form.truck_id} 
+                onChange={e => setForm({ ...form, truck_id: e.target.value })} 
+                className="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-ridge-500 focus:border-ridge-500"
+                disabled={trucks.length === 1}
+              >
+                <option value="">Select a truck...</option>
+                {trucks.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
             </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-stone-700 mb-1">Venue *</label>
+              <select required value={form.venue_id} onChange={e => setForm({ ...form, venue_id: e.target.value })} className="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-ridge-500 focus:border-ridge-500">
+                <option value="">Select a venue...</option>
+                {venues.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+              </select>
+            </div>
+
+            {/* Date Mode Selection - only show when not editing */}
+            {!editing && (
               <div>
-                <label className="block text-sm font-medium text-stone-700 mb-1">Truck *</label>
-                <select required value={form.truck_id} onChange={e => setForm({ ...form, truck_id: e.target.value })} className="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-ridge-500 focus:border-ridge-500">
-                  <option value="">Select a truck...</option>
-                  {trucks.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                </select>
+                <label className="block text-sm font-medium text-stone-700 mb-2">Date Selection Mode</label>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => setMode('single')} className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${mode === 'single' ? 'bg-ridge-600 text-white' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'}`}>
+                    Single
+                  </button>
+                  <button type="button" onClick={() => setMode('multiple')} className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${mode === 'multiple' ? 'bg-ridge-600 text-white' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'}`}>
+                    Multiple
+                  </button>
+                  <button type="button" onClick={() => setMode('recurring')} className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${mode === 'recurring' ? 'bg-ridge-600 text-white' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'}`}>
+                    Weekly
+                  </button>
+                </div>
               </div>
+            )}
+
+            {/* Single Date */}
+            {(mode === 'single' || editing) && (
               <div>
-                <label className="block text-sm font-medium text-stone-700 mb-1">Venue *</label>
-                <select required value={form.venue_id} onChange={e => setForm({ ...form, venue_id: e.target.value })} className="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-ridge-500 focus:border-ridge-500">
-                  <option value="">Select a venue...</option>
-                  {venues.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
-                </select>
+                <label className="block text-sm font-medium text-stone-700 mb-1">Date *</label>
+                <input type="date" required value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} min={today} className="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-ridge-500 focus:border-ridge-500" />
               </div>
+            )}
 
-              {/* Date Mode Selection - only show when not editing */}
-              {!editing && (
-                <div>
-                  <label className="block text-sm font-medium text-stone-700 mb-2">Date Selection Mode</label>
-                  <div className="flex gap-2">
-                    <button type="button" onClick={() => setMode('single')} className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${mode === 'single' ? 'bg-ridge-600 text-white' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'}`}>
-                      Single
-                    </button>
-                    <button type="button" onClick={() => setMode('multiple')} className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${mode === 'multiple' ? 'bg-ridge-600 text-white' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'}`}>
-                      Multiple
-                    </button>
-                    <button type="button" onClick={() => setMode('recurring')} className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${mode === 'recurring' ? 'bg-ridge-600 text-white' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'}`}>
-                      Weekly
-                    </button>
-                  </div>
+            {/* Multiple Dates */}
+            {mode === 'multiple' && !editing && (
+              <div>
+                <label className="block text-sm font-medium text-stone-700 mb-2">
+                  Select Dates ({selectedDates.length} selected)
+                </label>
+                <div className="max-h-48 overflow-y-auto border border-stone-200 rounded-lg p-2 space-y-1">
+                  {next30Days.map(({ date, display }) => (
+                    <label key={date} className={`flex items-center gap-2 p-2 rounded cursor-pointer transition-colors ${selectedDates.includes(date) ? 'bg-ridge-100' : 'hover:bg-stone-50'}`}>
+                      <input 
+                        type="checkbox" 
+                        checked={selectedDates.includes(date)}
+                        onChange={() => toggleDate(date)}
+                        className="w-4 h-4 text-ridge-600 rounded focus:ring-ridge-500"
+                      />
+                      <span className="text-sm">{display}</span>
+                    </label>
+                  ))}
                 </div>
-              )}
+                {selectedDates.length > 0 && (
+                  <button type="button" onClick={() => setSelectedDates([])} className="mt-2 text-sm text-stone-500 hover:text-stone-700">
+                    Clear selection
+                  </button>
+                )}
+              </div>
+            )}
 
-              {/* Single Date */}
-              {(mode === 'single' || editing) && (
+            {/* Recurring Weekly */}
+            {mode === 'recurring' && !editing && (
+              <>
                 <div>
-                  <label className="block text-sm font-medium text-stone-700 mb-1">Date *</label>
-                  <input type="date" required value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} min={today} className="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-ridge-500 focus:border-ridge-500" />
+                  <label className="block text-sm font-medium text-stone-700 mb-1">Every *</label>
+                  <select value={recurringDay} onChange={e => setRecurringDay(parseInt(e.target.value))} className="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-ridge-500 focus:border-ridge-500">
+                    {dayNames.map((day, i) => <option key={day} value={i}>{day}</option>)}
+                  </select>
                 </div>
-              )}
-
-              {/* Multiple Dates */}
-              {mode === 'multiple' && !editing && (
                 <div>
-                  <label className="block text-sm font-medium text-stone-700 mb-2">
-                    Select Dates ({selectedDates.length} selected)
-                  </label>
-                  <div className="max-h-48 overflow-y-auto border border-stone-200 rounded-lg p-2 space-y-1">
-                    {next30Days.map(({ date, display }) => (
-                      <label key={date} className={`flex items-center gap-2 p-2 rounded cursor-pointer transition-colors ${selectedDates.includes(date) ? 'bg-ridge-100' : 'hover:bg-stone-50'}`}>
-                        <input 
-                          type="checkbox" 
-                          checked={selectedDates.includes(date)}
-                          onChange={() => toggleDate(date)}
-                          className="w-4 h-4 text-ridge-600 rounded focus:ring-ridge-500"
-                        />
-                        <span className="text-sm">{display}</span>
-                      </label>
-                    ))}
-                  </div>
-                  {selectedDates.length > 0 && (
-                    <button type="button" onClick={() => setSelectedDates([])} className="mt-2 text-sm text-stone-500 hover:text-stone-700">
-                      Clear selection
-                    </button>
+                  <label className="block text-sm font-medium text-stone-700 mb-1">Until *</label>
+                  <input type="date" required={mode === 'recurring'} value={recurringEndDate} onChange={e => setRecurringEndDate(e.target.value)} min={today} className="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-ridge-500 focus:border-ridge-500" />
+                  {recurringEndDate && (
+                    <p className="mt-1 text-xs text-stone-500">
+                      Will create {getRecurringDates(recurringDay, recurringEndDate).length} entries
+                    </p>
                   )}
                 </div>
-              )}
+              </>
+            )}
 
-              {/* Recurring Weekly */}
-              {mode === 'recurring' && !editing && (
-                <>
-                  <div>
-                    <label className="block text-sm font-medium text-stone-700 mb-1">Every *</label>
-                    <select value={recurringDay} onChange={e => setRecurringDay(parseInt(e.target.value))} className="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-ridge-500 focus:border-ridge-500">
-                      {dayNames.map((day, i) => <option key={day} value={i}>{day}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-stone-700 mb-1">Until *</label>
-                    <input type="date" required={mode === 'recurring'} value={recurringEndDate} onChange={e => setRecurringEndDate(e.target.value)} min={today} className="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-ridge-500 focus:border-ridge-500" />
-                    {recurringEndDate && (
-                      <p className="mt-1 text-xs text-stone-500">
-                        Will create {getRecurringDates(recurringDay, recurringEndDate).length} entries
-                      </p>
-                    )}
-                  </div>
-                </>
-              )}
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-sm font-medium text-stone-700 mb-1">Start Time *</label>
-                  <input type="time" required value={form.start_time} onChange={e => setForm({ ...form, start_time: e.target.value })} className="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-ridge-500 focus:border-ridge-500" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-stone-700 mb-1">End Time *</label>
-                  <input type="time" required value={form.end_time} onChange={e => setForm({ ...form, end_time: e.target.value })} className="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-ridge-500 focus:border-ridge-500" />
-                </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-sm font-medium text-stone-700 mb-1">Start Time *</label>
+                <input type="time" required value={form.start_time} onChange={e => setForm({ ...form, start_time: e.target.value })} className="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-ridge-500 focus:border-ridge-500" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-stone-700 mb-1">Event Name (optional)</label>
-                <input type="text" value={form.event_name} onChange={e => setForm({ ...form, event_name: e.target.value })} className="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-ridge-500 focus:border-ridge-500" placeholder="e.g., Farmers Market, Live Music Night" />
+                <label className="block text-sm font-medium text-stone-700 mb-1">End Time *</label>
+                <input type="time" required value={form.end_time} onChange={e => setForm({ ...form, end_time: e.target.value })} className="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-ridge-500 focus:border-ridge-500" />
               </div>
-              <div className="flex gap-2">
-                <button type="submit" className="flex-1 bg-ridge-600 hover:bg-ridge-700 text-white py-2 px-4 rounded-lg font-semibold transition-colors">
-                  {editing ? 'Update' : mode === 'single' ? 'Add to Schedule' : `Add ${mode === 'multiple' ? selectedDates.length : getRecurringDates(recurringDay, recurringEndDate).length || 0} Entries`}
-                </button>
-                {editing && <button type="button" onClick={() => { setEditing(null); setForm({ truck_id: '', venue_id: '', date: '', start_time: '17:00', end_time: '21:00', event_name: '' }); }} className="px-4 py-2 bg-stone-200 hover:bg-stone-300 rounded-lg">Cancel</button>}
-              </div>
-            </form>
-          )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-stone-700 mb-1">Event Name (optional)</label>
+              <input type="text" value={form.event_name} onChange={e => setForm({ ...form, event_name: e.target.value })} className="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-ridge-500 focus:border-ridge-500" placeholder="e.g., Farmers Market, Live Music Night" />
+            </div>
+            <div className="flex gap-2">
+              <button type="submit" className="flex-1 bg-ridge-600 hover:bg-ridge-700 text-white py-2 px-4 rounded-lg font-semibold transition-colors">
+                {editing ? 'Update' : mode === 'single' ? 'Add to Schedule' : `Add ${mode === 'multiple' ? selectedDates.length : getRecurringDates(recurringDay, recurringEndDate).length || 0} Entries`}
+              </button>
+              {editing && <button type="button" onClick={() => { setEditing(null); setForm({ truck_id: trucks.length === 1 ? trucks[0].id : '', venue_id: '', date: '', start_time: '17:00', end_time: '21:00', event_name: '' }); }} className="px-4 py-2 bg-stone-200 hover:bg-stone-300 rounded-lg">Cancel</button>}
+            </div>
+          </form>
         </div>
       </div>
 
@@ -632,6 +860,149 @@ function ScheduleTab({ schedule, trucks, venues, onUpdate, showMessage }: { sche
             </div>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ============ USERS TAB (Admin Only) ============
+function UsersTab({ trucks, onUpdate, showMessage }: { 
+  trucks: Truck[]; 
+  onUpdate: () => void; 
+  showMessage: (m: string) => void 
+}) {
+  const [selectedTruck, setSelectedTruck] = useState('');
+  const [email, setEmail] = useState('');
+
+  async function handleAssign(e: React.FormEvent) {
+    e.preventDefault();
+    if (!selectedTruck || !email) return;
+    
+    try {
+      await assignTruckToUser(selectedTruck, email);
+      showMessage('Truck assigned to user!');
+      setSelectedTruck('');
+      setEmail('');
+      onUpdate();
+    } catch (err) {
+      showMessage('Error: ' + (err as Error).message);
+    }
+  }
+
+  async function handleUnassign(truckId: string) {
+    if (!confirm('Remove user assignment from this truck?')) return;
+    
+    try {
+      await unassignTruckFromUser(truckId);
+      showMessage('User assignment removed');
+      onUpdate();
+    } catch (err) {
+      showMessage('Error: ' + (err as Error).message);
+    }
+  }
+
+  const assignedTrucks = trucks.filter(t => t.user_id);
+  const unassignedTrucks = trucks.filter(t => !t.user_id);
+
+  return (
+    <div className="grid lg:grid-cols-2 gap-6">
+      <div>
+        <div className="bg-white rounded-xl shadow-sm p-6">
+          <h2 className="text-lg font-bold text-stone-900 mb-4">Assign Truck to User</h2>
+          <p className="text-sm text-stone-500 mb-4">
+            First, invite the user via Supabase Dashboard → Authentication → Users → Invite user.
+            Then enter their email below to link them to a truck.
+          </p>
+          <form onSubmit={handleAssign} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-stone-700 mb-1">Truck</label>
+              <select 
+                value={selectedTruck} 
+                onChange={e => setSelectedTruck(e.target.value)}
+                className="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-ridge-500 focus:border-ridge-500"
+              >
+                <option value="">Select a truck...</option>
+                {unassignedTrucks.map(t => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-stone-700 mb-1">User Email</label>
+              <input 
+                type="email" 
+                value={email} 
+                onChange={e => setEmail(e.target.value)}
+                placeholder="truckowner@example.com"
+                className="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-ridge-500 focus:border-ridge-500"
+              />
+            </div>
+            <button 
+              type="submit" 
+              disabled={!selectedTruck || !email}
+              className="w-full bg-ridge-600 hover:bg-ridge-700 disabled:bg-stone-300 text-white py-2 px-4 rounded-lg font-semibold transition-colors"
+            >
+              Assign Truck
+            </button>
+          </form>
+        </div>
+
+        <div className="bg-sunset-50 rounded-xl p-6 mt-6">
+          <h3 className="font-bold text-sunset-800 mb-2">📋 How to invite a truck owner:</h3>
+          <ol className="text-sm text-sunset-700 space-y-2 list-decimal list-inside">
+            <li>Go to your <a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer" className="underline">Supabase Dashboard</a></li>
+            <li>Select your project → Authentication → Users</li>
+            <li>Click "Invite user" and enter their email</li>
+            <li>They'll receive an email to set their password</li>
+            <li>Come back here and assign their truck</li>
+          </ol>
+        </div>
+      </div>
+
+      <div>
+        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+          <div className="p-4 border-b border-stone-200">
+            <h2 className="font-bold text-stone-900">Assigned Trucks ({assignedTrucks.length})</h2>
+          </div>
+          {assignedTrucks.length === 0 ? (
+            <div className="p-8 text-center text-stone-500">No trucks assigned yet.</div>
+          ) : (
+            <div className="divide-y divide-stone-100">
+              {assignedTrucks.map(truck => (
+                <div key={truck.id} className="p-4 flex items-center justify-between hover:bg-stone-50">
+                  <div>
+                    <div className="font-semibold text-stone-900">{truck.name}</div>
+                    <div className="text-sm text-ridge-600">{truck.user_id}</div>
+                  </div>
+                  <button 
+                    onClick={() => handleUnassign(truck.id)}
+                    className="px-3 py-1 text-sm bg-red-100 hover:bg-red-200 text-red-700 rounded-lg"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm overflow-hidden mt-6">
+          <div className="p-4 border-b border-stone-200">
+            <h2 className="font-bold text-stone-900">Unassigned Trucks ({unassignedTrucks.length})</h2>
+          </div>
+          {unassignedTrucks.length === 0 ? (
+            <div className="p-8 text-center text-stone-500">All trucks are assigned!</div>
+          ) : (
+            <div className="divide-y divide-stone-100">
+              {unassignedTrucks.map(truck => (
+                <div key={truck.id} className="p-4">
+                  <div className="font-semibold text-stone-900">{truck.name}</div>
+                  <div className="text-sm text-stone-500">{truck.cuisine_type || 'No cuisine set'}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
