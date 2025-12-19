@@ -212,7 +212,7 @@ function TrucksTab({ trucks, isAdmin, onUpdate, showMessage }: {
         await updateTruck(editing, form);
         showMessage('Truck updated!');
       } else if (isAdmin) {
-        await addTruck(form);
+        await addTruck({ ...form, user_id: null });
         showMessage('Truck added!');
       }
       setForm({ name: '', description: '', cuisine_type: '', phone: '', facebook: '', instagram: '' });
