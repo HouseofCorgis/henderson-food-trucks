@@ -124,12 +124,22 @@ export default function HomeClient({ trucks, venues, schedule }: { trucks: Truck
       <section className="relative bg-gradient-to-br from-ridge-700 via-ridge-600 to-ridge-800 text-white overflow-hidden">
         <div className="absolute inset-0 opacity-10"><svg className="w-full h-full" viewBox="0 0 1440 600" preserveAspectRatio="xMidYMid slice"><path d="M0 600 L200 300 L400 450 L600 200 L800 380 L1000 150 L1200 350 L1440 100 L1440 600 Z" fill="currentColor" /></svg></div>
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 lg:py-32">
-          <div className="max-w-3xl">
-            <h1 className="font-display text-5xl lg:text-7xl font-bold mb-6">What&apos;s Rollin&apos;<span className="block text-sunset-400">Local</span></h1>
-            <p className="text-xl lg:text-2xl text-ridge-100 mb-8">Your guide to food trucks, breweries &amp; events in WNC</p>
-            <div className="flex flex-wrap gap-4">
-              <a href="#today" className="inline-flex items-center px-6 py-3 bg-sunset-500 hover:bg-sunset-600 text-white font-semibold rounded-full transition-all hover:scale-105 shadow-lg">Find Trucks Today</a>
-              <a href="#trucks" className="inline-flex items-center px-6 py-3 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-full border border-white/30">Browse All Trucks</a>
+          <div className="flex items-center justify-between">
+            <div className="max-w-3xl">
+              <h1 className="font-display text-5xl lg:text-7xl font-bold mb-6">What&apos;s Rollin&apos;<span className="block text-sunset-400">Local</span></h1>
+              <p className="text-xl lg:text-2xl text-ridge-100 mb-8">Your guide to food trucks, breweries &amp; events in WNC</p>
+              <div className="flex flex-wrap gap-4">
+                <a href="#today" className="inline-flex items-center px-6 py-3 bg-sunset-500 hover:bg-sunset-600 text-white font-semibold rounded-full transition-all hover:scale-105 shadow-lg">Find Trucks Today</a>
+                <a href="#trucks" className="inline-flex items-center px-6 py-3 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-full border border-white/30">Browse All Trucks</a>
+              </div>
+            </div>
+            {/* Logo - hidden on mobile */}
+            <div className="hidden lg:block lg:mr-12 xl:mr-20">
+              <img 
+                src="/images/food-truck-logo.png" 
+                alt="What's Rollin' Local food truck" 
+                className="h-72 lg:h-72 xl:h-80 w-auto object-contain drop-shadow-2xl hover:scale-105 transition-transform duration-300"
+              />
             </div>
           </div>
           <div className="mt-16 grid grid-cols-3 gap-8 max-w-lg">
