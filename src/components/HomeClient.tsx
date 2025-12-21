@@ -8,6 +8,42 @@ import TruckCard from '@/components/TruckCard';
 import ScheduleCard from '@/components/ScheduleCard';
 import VenueCard from '@/components/VenueCard';
 
+// Helper function to get today's date in Eastern Time (must match server)
+function getTodayET(): string {
+  const now = new Date();
+  const year = now.getUTCFullYear();
+  const month = now.getUTCMonth();
+  const date = now.getUTCDate();
+  const hour = now.getUTCHours();
+  
+  let isDST = false;
+  if (month > 2 && month < 10) {
+    isDST = true;
+  } else if (month === 2) {
+    const marchFirst = new Date(year, 2, 1);
+    const firstSunday = 1 + (7 - marchFirst.getDay()) % 7;
+    const secondSunday = firstSunday + 7;
+    if (date > secondSunday || (date === secondSunday && hour >= 7)) {
+      isDST = true;
+    }
+  } else if (month === 10) {
+    const novFirst = new Date(year, 10, 1);
+    const firstSunday = 1 + (7 - novFirst.getDay()) % 7;
+    if (date < firstSunday || (date === firstSunday && hour < 6)) {
+      isDST = true;
+    }
+  }
+  
+  const offsetHours = isDST ? 4 : 5;
+  const etTime = new Date(now.getTime() - (offsetHours * 60 * 60 * 1000));
+  
+  const y = etTime.getUTCFullYear();
+  const m = String(etTime.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(etTime.getUTCDate()).padStart(2, '0');
+  
+  return `${y}-${m}-${d}`;
+}
+
 const MapSection = dynamic(() => import('@/components/MapSection'), { 
   ssr: false,
   loading: () => <div className="h-[500px] bg-stone-200 animate-pulse rounded-xl flex items-center justify-center"><span className="text-stone-500">Loading map...</span></div>
@@ -26,8 +62,7 @@ export default function HomeClient({ trucks, venues, schedule }: { trucks: Truck
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
   
-  // Use Eastern Time for "today" calculation
-  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+  const today = getTodayET();
   
   const todaysSchedule = useMemo(() => schedule.filter(s => s.date === today), [schedule, today]);
   const upcomingSchedule = useMemo(() => schedule.filter(s => s.date >= today).sort((a, b) => a.date.localeCompare(b.date)), [schedule, today]);
@@ -336,7 +371,7 @@ export default function HomeClient({ trucks, venues, schedule }: { trucks: Truck
                     .sort(([a], [b]) => a.localeCompare(b))
                     .map(([date, entries]) => {
                       const dateObj = new Date(date + 'T12:00:00');
-                      const isToday = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' }) === date;
+                      const isToday = date === today;
                       return (
                         <div key={date} className="bg-white rounded-2xl shadow-sm overflow-hidden">
                           <div className={`px-6 py-4 ${isToday ? 'bg-sunset-500 text-white' : 'bg-ridge-100'}`}>

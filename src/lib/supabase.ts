@@ -5,6 +5,50 @@ const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+// Helper function to get today's date in Eastern Time
+export function getTodayET(): string {
+  const now = new Date();
+  // Eastern Time offset: -5 hours (EST) or -4 hours (EDT)
+  // Simple DST check: DST is roughly March second Sunday to November first Sunday
+  const year = now.getUTCFullYear();
+  const month = now.getUTCMonth();
+  const date = now.getUTCDate();
+  const hour = now.getUTCHours();
+  
+  // Determine if DST is in effect (approximate)
+  // DST starts second Sunday in March, ends first Sunday in November
+  let isDST = false;
+  if (month > 2 && month < 10) {
+    isDST = true; // April through October
+  } else if (month === 2) {
+    // March - DST starts second Sunday
+    const marchFirst = new Date(year, 2, 1);
+    const firstSunday = 1 + (7 - marchFirst.getDay()) % 7;
+    const secondSunday = firstSunday + 7;
+    if (date > secondSunday || (date === secondSunday && hour >= 7)) {
+      isDST = true;
+    }
+  } else if (month === 10) {
+    // November - DST ends first Sunday
+    const novFirst = new Date(year, 10, 1);
+    const firstSunday = 1 + (7 - novFirst.getDay()) % 7;
+    if (date < firstSunday || (date === firstSunday && hour < 6)) {
+      isDST = true;
+    }
+  }
+  
+  // Apply offset: UTC-4 for EDT, UTC-5 for EST
+  const offsetHours = isDST ? 4 : 5;
+  const etTime = new Date(now.getTime() - (offsetHours * 60 * 60 * 1000));
+  
+  // Format as YYYY-MM-DD
+  const y = etTime.getUTCFullYear();
+  const m = String(etTime.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(etTime.getUTCDate()).padStart(2, '0');
+  
+  return `${y}-${m}-${d}`;
+}
+
 export interface Truck {
   id: string;
   name: string;
@@ -50,8 +94,7 @@ export async function getVenues(): Promise<Venue[]> {
 }
 
 export async function getSchedule(): Promise<ScheduleEntry[]> {
-  // Use Eastern Time for "today" calculation
-  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+  const today = getTodayET();
   const { data, error } = await supabase.from('schedule').select('*').gte('date', today).order('date').order('start_time');
   if (error) { console.error('Error fetching schedule:', error); return []; }
   return data || [];
