@@ -203,7 +203,7 @@ function TrucksTab({ trucks, isAdmin, onUpdate, showMessage }: {
   const [editing, setEditing] = useState<string | null>(null);
   const [form, setForm] = useState({ name: '', description: '', cuisine_type: '', phone: '', facebook: '', instagram: '' });
 
-  const cuisineTypes = ['BBQ', 'Mexican', 'Burgers', 'Pizza', 'American', 'Southern', 'Seafood', 'Vietnamese', 'Korean', 'Mediterranean', 'Vegan', 'Desserts', 'Coffee', 'Other'];
+  const cuisineTypes = ['BBQ', 'Mexican', 'Burgers', 'Pizza', 'American', 'Seafood', 'South American', 'Mediterranean', 'Desserts', 'Coffee', 'Other'];
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -406,7 +406,7 @@ function VenuesTab({ venues, onUpdate, showMessage }: {
   const [editing, setEditing] = useState<string | null>(null);
   const [form, setForm] = useState({ name: '', description: '', address: '', lat: '', lng: '', type: 'brewery', phone: '', website: '' });
 
-  const venueTypes = ['brewery', 'winery', 'park', 'event-space', 'market', 'other'];
+  const venueTypes = ['brewery', 'winery', 'park', 'event-space', 'market', 'taproom', 'other'];
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
