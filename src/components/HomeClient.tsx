@@ -136,7 +136,7 @@ export default function HomeClient({ trucks, venues, schedule }: { trucks: Truck
             {/* Logo - hidden on mobile */}
             <div className="hidden lg:block lg:mr-12 xl:mr-20">
               <img 
-                src="/images/food-truck-logo.png" 
+                src="/images/food-truck-logo.webp" 
                 alt="What's Rollin' Local food truck" 
                 className="h-72 lg:h-72 xl:h-80 w-auto object-contain drop-shadow-2xl hover:scale-105 transition-transform duration-300"
               />
