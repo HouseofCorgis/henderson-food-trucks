@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -62,23 +62,10 @@ export default function HomeClient({ trucks, venues, schedule }: { trucks: Truck
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
   
-  // Use state for today to avoid hydration mismatch between server and client
-  const [today, setToday] = useState<string>('');
-  const [isClient, setIsClient] = useState(false);
+  const today = getTodayET();
   
-  useEffect(() => {
-    setToday(getTodayET());
-    setIsClient(true);
-  }, []);
-  
-  const todaysSchedule = useMemo(() => {
-    if (!today) return [];
-    return schedule.filter(s => s.date === today);
-  }, [schedule, today]);
-  const upcomingSchedule = useMemo(() => {
-    if (!today) return schedule.sort((a, b) => a.date.localeCompare(b.date));
-    return schedule.filter(s => s.date >= today).sort((a, b) => a.date.localeCompare(b.date));
-  }, [schedule, today]);
+  const todaysSchedule = useMemo(() => schedule.filter(s => s.date === today), [schedule, today]);
+  const upcomingSchedule = useMemo(() => schedule.filter(s => s.date >= today).sort((a, b) => a.date.localeCompare(b.date)), [schedule, today]);
   const cuisineTypes = useMemo(() => ['all', ...Array.from(new Set(trucks.map(t => t.cuisineType))).filter(Boolean).sort()], [trucks]);
   const filteredTrucks = useMemo(() => cuisineFilter === 'all' ? trucks : trucks.filter(t => t.cuisineType === cuisineFilter), [trucks, cuisineFilter]);
   const scheduleByDate = useMemo(() => { 
@@ -158,7 +145,7 @@ export default function HomeClient({ trucks, venues, schedule }: { trucks: Truck
           <div className="mt-16 grid grid-cols-3 gap-8 max-w-lg">
             <div><div className="text-4xl font-display font-bold text-sunset-400">{trucks.length}</div><div className="text-ridge-200 text-sm">Food Trucks</div></div>
             <div><div className="text-4xl font-display font-bold text-sunset-400">{venues.length}</div><div className="text-ridge-200 text-sm">Venues</div></div>
-            <div suppressHydrationWarning><div className="text-4xl font-display font-bold text-sunset-400">{todaysSchedule.length}</div><div className="text-ridge-200 text-sm">Serving Today</div></div>
+            <div><div className="text-4xl font-display font-bold text-sunset-400">{todaysSchedule.length}</div><div className="text-ridge-200 text-sm">Serving Today</div></div>
           </div>
         </div>
         <div className="mountain-divider-inverted"></div>
@@ -166,7 +153,7 @@ export default function HomeClient({ trucks, venues, schedule }: { trucks: Truck
 
       <section id="today" className="py-16 lg:py-24 bg-stone-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12" suppressHydrationWarning>
+          <div className="text-center mb-12">
             <h2 className="font-display text-4xl lg:text-5xl font-bold text-stone-900 mb-4">{todaysSchedule.length > 0 ? "Where to Find Trucks Today" : "No Trucks Scheduled Today"}</h2>
             <p className="text-lg text-stone-600 max-w-2xl mx-auto">{todaysSchedule.length > 0 ? "Here's where food trucks are serving right now" : "Check back soon or browse the upcoming schedule below"}</p>
           </div>
@@ -384,13 +371,13 @@ export default function HomeClient({ trucks, venues, schedule }: { trucks: Truck
 
           {/* List View */}
           {scheduleView === 'list' && (
-            <div suppressHydrationWarning>
-              {Object.keys(scheduleByDate).filter(date => !today || date >= today).length === 0 ? (
+            <>
+              {Object.keys(scheduleByDate).filter(date => date >= today).length === 0 ? (
                 <p className="text-center text-stone-500 py-12">No upcoming events scheduled.</p>
               ) : (
                 <div className="space-y-8">
                   {Object.entries(scheduleByDate)
-                    .filter(([date]) => !today || date >= today)
+                    .filter(([date]) => date >= today)
                     .sort(([a], [b]) => a.localeCompare(b))
                     .map(([date, entries]) => {
                       const dateObj = new Date(date + 'T12:00:00');
@@ -420,7 +407,7 @@ export default function HomeClient({ trucks, venues, schedule }: { trucks: Truck
                     })}
                 </div>
               )}
-            </div>
+            </>
           )}
         </div>
       </section>
