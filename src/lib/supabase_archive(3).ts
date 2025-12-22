@@ -5,39 +5,6 @@ const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// Super admin email - can see and edit everything
-export const SUPER_ADMIN_EMAIL = 'jamminjessjams@gmail.com';
-
-// ============ AUTH FUNCTIONS ============
-
-export async function signIn(email: string, password: string) {
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
-  if (error) throw error;
-  return data;
-}
-
-export async function signOut() {
-  const { error } = await supabase.auth.signOut();
-  if (error) throw error;
-}
-
-export async function getSession() {
-  const { data: { session } } = await supabase.auth.getSession();
-  return session;
-}
-
-export async function getCurrentUser() {
-  const { data: { user } } = await supabase.auth.getUser();
-  return user;
-}
-
-export function isSuperAdmin(email: string | undefined) {
-  return email === SUPER_ADMIN_EMAIL;
-}
-
 // Helper function to get today's date in Eastern Time
 export function getTodayET(): string {
   const now = new Date();
@@ -185,76 +152,4 @@ export async function updateScheduleEntry(id: string, entry: Partial<ScheduleEnt
 export async function deleteScheduleEntry(id: string) {
   const { error } = await supabase.from('schedule').delete().eq('id', id);
   if (error) throw error;
-}
-
-// ============ ADMIN FUNCTIONS ============
-
-// Get trucks for a specific user (or all if super admin)
-export async function getTrucksForUser(userEmail: string): Promise<Truck[]> {
-  if (isSuperAdmin(userEmail)) {
-    return getTrucks();
-  }
-  
-  const { data, error } = await supabase
-    .from('trucks')
-    .select('*')
-    .eq('user_id', userEmail)
-    .order('name');
-  
-  if (error) { console.error('Error fetching trucks for user:', error); return []; }
-  return data || [];
-}
-
-// Get schedule entries for trucks owned by user (or all if super admin)
-export async function getScheduleForUser(userEmail: string, truckIds?: string[]): Promise<ScheduleEntry[]> {
-  if (isSuperAdmin(userEmail)) {
-    const { data, error } = await supabase.from('schedule').select('*').order('date').order('start_time');
-    if (error) { console.error('Error fetching schedule:', error); return []; }
-    return data || [];
-  }
-  
-  // Use provided truckIds or fetch them
-  let ids = truckIds;
-  if (!ids) {
-    const trucks = await getTrucksForUser(userEmail);
-    ids = trucks.map(t => t.id);
-  }
-  
-  if (ids.length === 0) return [];
-  
-  const { data, error } = await supabase
-    .from('schedule')
-    .select('*')
-    .in('truck_id', ids)
-    .order('date')
-    .order('start_time');
-  
-  if (error) { console.error('Error fetching schedule for user:', error); return []; }
-  return data || [];
-}
-
-// Assign a truck to a user (super admin only)
-export async function assignTruckToUser(truckId: string, userEmail: string) {
-  const { data, error } = await supabase
-    .from('trucks')
-    .update({ user_id: userEmail })
-    .eq('id', truckId)
-    .select()
-    .single();
-  
-  if (error) throw error;
-  return data;
-}
-
-// Remove user assignment from truck (super admin only)
-export async function unassignTruckFromUser(truckId: string) {
-  const { data, error } = await supabase
-    .from('trucks')
-    .update({ user_id: null })
-    .eq('id', truckId)
-    .select()
-    .single();
-  
-  if (error) throw error;
-  return data;
 }

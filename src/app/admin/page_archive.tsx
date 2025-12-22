@@ -545,9 +545,7 @@ function ScheduleTab({ schedule, trucks, venues, isAdmin, onUpdate, showMessage 
     date: '', 
     start_time: '17:00', 
     end_time: '21:00', 
-    event_name: '',
-    other_truck_name: '',
-    other_venue_name: ''
+    event_name: '' 
   });
   const [selectedDates, setSelectedDates] = useState<string[]>([]);
   const [recurringDay, setRecurringDay] = useState<number>(0);
@@ -606,30 +604,10 @@ function ScheduleTab({ schedule, trucks, venues, isAdmin, onUpdate, showMessage 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     try {
-      // Validate: if "other" is selected, make sure the name is filled in
-      if (form.truck_id === 'other' && !form.other_truck_name.trim()) {
-        showMessage('Please enter the truck name');
-        return;
-      }
-      if (form.venue_id === 'other' && !form.other_venue_name.trim()) {
-        showMessage('Please enter the venue name');
-        return;
-      }
-
-      const entryData = {
-        truck_id: form.truck_id === 'other' ? 'other' : form.truck_id,
-        venue_id: form.venue_id === 'other' ? 'other' : form.venue_id,
-        start_time: form.start_time,
-        end_time: form.end_time,
-        event_name: form.event_name || null,
-        other_truck_name: form.truck_id === 'other' ? form.other_truck_name.trim() : null,
-        other_venue_name: form.venue_id === 'other' ? form.other_venue_name.trim() : null,
-      };
-
       if (editing) {
-        await updateScheduleEntry(editing, { ...entryData, date: form.date });
+        await updateScheduleEntry(editing, form);
         showMessage('Schedule updated!');
-        setForm({ truck_id: trucks.length === 1 ? trucks[0].id : '', venue_id: '', date: '', start_time: '17:00', end_time: '21:00', event_name: '', other_truck_name: '', other_venue_name: '' });
+        setForm({ truck_id: trucks.length === 1 ? trucks[0].id : '', venue_id: '', date: '', start_time: '17:00', end_time: '21:00', event_name: '' });
         setEditing(null);
       } else {
         let datesToAdd: string[] = [];
@@ -649,13 +627,17 @@ function ScheduleTab({ schedule, trucks, venues, isAdmin, onUpdate, showMessage 
         
         for (const date of datesToAdd) {
           await addScheduleEntry({
-            ...entryData,
+            truck_id: form.truck_id,
+            venue_id: form.venue_id,
             date,
+            start_time: form.start_time,
+            end_time: form.end_time,
+            event_name: form.event_name || null,
           });
         }
         
         showMessage(`Added ${datesToAdd.length} schedule ${datesToAdd.length === 1 ? 'entry' : 'entries'}!`);
-        setForm({ truck_id: trucks.length === 1 ? trucks[0].id : '', venue_id: '', date: '', start_time: '17:00', end_time: '21:00', event_name: '', other_truck_name: '', other_venue_name: '' });
+        setForm({ truck_id: trucks.length === 1 ? trucks[0].id : '', venue_id: '', date: '', start_time: '17:00', end_time: '21:00', event_name: '' });
         setSelectedDates([]);
         setRecurringEndDate('');
       }
@@ -686,23 +668,11 @@ function ScheduleTab({ schedule, trucks, venues, isAdmin, onUpdate, showMessage 
       start_time: entry.start_time,
       end_time: entry.end_time,
       event_name: entry.event_name || '',
-      other_truck_name: (entry as any).other_truck_name || '',
-      other_venue_name: (entry as any).other_venue_name || '',
     });
   }
 
-  const getTruckName = (id: string, entry?: ScheduleEntry) => {
-    if (id === 'other' && entry) {
-      return (entry as any).other_truck_name || 'Other Truck';
-    }
-    return trucks.find(t => t.id === id)?.name || 'Unknown';
-  };
-  const getVenueName = (id: string, entry?: ScheduleEntry) => {
-    if (id === 'other' && entry) {
-      return (entry as any).other_venue_name || 'Other Venue';
-    }
-    return venues.find(v => v.id === id)?.name || 'Unknown';
-  };
+  const getTruckName = (id: string) => trucks.find(t => t.id === id)?.name || 'Unknown';
+  const getVenueName = (id: string) => venues.find(v => v.id === id)?.name || 'Unknown';
   
   const formatDate = (d: string) => new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   const formatTime = (t: string) => { const [h, m] = t.split(':'); const hr = parseInt(h); return `${hr % 12 || 12}:${m} ${hr >= 12 ? 'PM' : 'AM'}`; };
@@ -734,47 +704,20 @@ function ScheduleTab({ schedule, trucks, venues, isAdmin, onUpdate, showMessage 
               <select 
                 required 
                 value={form.truck_id} 
-                onChange={e => setForm({ ...form, truck_id: e.target.value, other_truck_name: e.target.value === 'other' ? form.other_truck_name : '' })} 
+                onChange={e => setForm({ ...form, truck_id: e.target.value })} 
                 className="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-ridge-500 focus:border-ridge-500"
                 disabled={trucks.length === 1}
               >
                 <option value="">Select a truck...</option>
                 {trucks.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                <option value="other">➕ Other (one-time)</option>
               </select>
-              {form.truck_id === 'other' && (
-                <input 
-                  type="text" 
-                  placeholder="Enter truck name..."
-                  value={form.other_truck_name}
-                  onChange={e => setForm({ ...form, other_truck_name: e.target.value })}
-                  className="w-full mt-2 px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-ridge-500 focus:border-ridge-500"
-                  required
-                />
-              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-stone-700 mb-1">Venue *</label>
-              <select 
-                required 
-                value={form.venue_id} 
-                onChange={e => setForm({ ...form, venue_id: e.target.value, other_venue_name: e.target.value === 'other' ? form.other_venue_name : '' })} 
-                className="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-ridge-500 focus:border-ridge-500"
-              >
+              <select required value={form.venue_id} onChange={e => setForm({ ...form, venue_id: e.target.value })} className="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-ridge-500 focus:border-ridge-500">
                 <option value="">Select a venue...</option>
                 {venues.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
-                <option value="other">➕ Other (one-time)</option>
               </select>
-              {form.venue_id === 'other' && (
-                <input 
-                  type="text" 
-                  placeholder="Enter venue name/location..."
-                  value={form.other_venue_name}
-                  onChange={e => setForm({ ...form, other_venue_name: e.target.value })}
-                  className="w-full mt-2 px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-ridge-500 focus:border-ridge-500"
-                  required
-                />
-              )}
             </div>
 
             {/* Date Mode Selection - only show when not editing */}
@@ -869,7 +812,7 @@ function ScheduleTab({ schedule, trucks, venues, isAdmin, onUpdate, showMessage 
               <button type="submit" className="flex-1 bg-ridge-600 hover:bg-ridge-700 text-white py-2 px-4 rounded-lg font-semibold transition-colors">
                 {editing ? 'Update' : mode === 'single' ? 'Add to Schedule' : `Add ${mode === 'multiple' ? selectedDates.length : getRecurringDates(recurringDay, recurringEndDate).length || 0} Entries`}
               </button>
-              {editing && <button type="button" onClick={() => { setEditing(null); setForm({ truck_id: trucks.length === 1 ? trucks[0].id : '', venue_id: '', date: '', start_time: '17:00', end_time: '21:00', event_name: '', other_truck_name: '', other_venue_name: '' }); }} className="px-4 py-2 bg-stone-200 hover:bg-stone-300 rounded-lg">Cancel</button>}
+              {editing && <button type="button" onClick={() => { setEditing(null); setForm({ truck_id: trucks.length === 1 ? trucks[0].id : '', venue_id: '', date: '', start_time: '17:00', end_time: '21:00', event_name: '' }); }} className="px-4 py-2 bg-stone-200 hover:bg-stone-300 rounded-lg">Cancel</button>}
             </div>
           </form>
         </div>
@@ -885,7 +828,7 @@ function ScheduleTab({ schedule, trucks, venues, isAdmin, onUpdate, showMessage 
               {upcomingSchedule.map(entry => (
                 <div key={entry.id} className="p-4 flex items-center justify-between hover:bg-stone-50">
                   <div>
-                    <div className="font-semibold text-stone-900">{getTruckName(entry.truck_id, entry)} @ {getVenueName(entry.venue_id, entry)}</div>
+                    <div className="font-semibold text-stone-900">{getTruckName(entry.truck_id)} @ {getVenueName(entry.venue_id)}</div>
                     <div className="text-sm text-stone-500">
                       {formatDate(entry.date)} • {formatTime(entry.start_time)} - {formatTime(entry.end_time)}
                       {entry.event_name && <span className="ml-2 text-sunset-600">• {entry.event_name}</span>}
@@ -908,7 +851,7 @@ function ScheduleTab({ schedule, trucks, venues, isAdmin, onUpdate, showMessage 
               {pastSchedule.slice(0, 5).map(entry => (
                 <div key={entry.id} className="p-4 flex items-center justify-between">
                   <div>
-                    <div className="font-semibold text-stone-500">{getTruckName(entry.truck_id, entry)} @ {getVenueName(entry.venue_id, entry)}</div>
+                    <div className="font-semibold text-stone-500">{getTruckName(entry.truck_id)} @ {getVenueName(entry.venue_id)}</div>
                     <div className="text-sm text-stone-400">{formatDate(entry.date)}</div>
                   </div>
                   <button onClick={() => handleDelete(entry.id)} className="px-3 py-1 text-sm bg-stone-100 hover:bg-stone-200 text-stone-500 rounded-lg">Delete</button>

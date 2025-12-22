@@ -40,8 +40,6 @@ export default async function Home() {
     startTime: s.start_time,
     endTime: s.end_time,
     eventName: s.event_name || undefined,
-    otherTruckName: s.other_truck_name || undefined,
-    otherVenueName: s.other_venue_name || undefined,
   }));
 
   return <HomeClient trucks={trucks} venues={venues} schedule={schedule} />;

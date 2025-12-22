@@ -51,7 +51,7 @@ const MapSection = dynamic(() => import('@/components/MapSection'), {
 
 interface Truck { id: string; name: string; description: string; cuisineType: string; phone?: string; facebook?: string; instagram?: string; }
 interface Venue { id: string; name: string; description: string; address: string; lat: number; lng: number; type: string; phone?: string; website?: string; }
-interface ScheduleEntry { id: string; truckId: string; venueId: string; date: string; startTime: string; endTime: string; eventName?: string; otherTruckName?: string; otherVenueName?: string; }
+interface ScheduleEntry { id: string; truckId: string; venueId: string; date: string; startTime: string; endTime: string; eventName?: string; }
 
 export default function HomeClient({ trucks, venues, schedule }: { trucks: Truck[]; venues: Venue[]; schedule: ScheduleEntry[] }) {
   const [cuisineFilter, setCuisineFilter] = useState('all');
@@ -87,18 +87,8 @@ export default function HomeClient({ trucks, venues, schedule }: { trucks: Truck
     return g; 
   }, [schedule]);
   
-  const getTruckById = (id: string, entry?: ScheduleEntry) => {
-    if (id === 'other' && entry?.otherTruckName) {
-      return { id: 'other', name: entry.otherTruckName, description: '', cuisineType: '' } as Truck;
-    }
-    return trucks.find(t => t.id === id);
-  };
-  const getVenueById = (id: string, entry?: ScheduleEntry) => {
-    if (id === 'other' && entry?.otherVenueName) {
-      return { id: 'other', name: entry.otherVenueName, description: '', address: '', lat: 0, lng: 0, type: '' } as Venue;
-    }
-    return venues.find(v => v.id === id);
-  };
+  const getTruckById = (id: string) => trucks.find(t => t.id === id);
+  const getVenueById = (id: string) => venues.find(v => v.id === id);
 
   // Calendar helpers
   const getCalendarDays = (month: Date) => {
@@ -184,7 +174,7 @@ export default function HomeClient({ trucks, venues, schedule }: { trucks: Truck
             <>
               <div className="mb-12"><MapSection scheduleEntries={todaysSchedule} venues={venues} trucks={trucks} /></div>
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {todaysSchedule.map(entry => { const truck = getTruckById(entry.truckId, entry); const venue = getVenueById(entry.venueId, entry); if (!truck || !venue) return null; return <ScheduleCard key={entry.id} entry={entry} truck={truck} venue={venue} showDate={false} />; })}
+                {todaysSchedule.map(entry => { const truck = getTruckById(entry.truckId); const venue = getVenueById(entry.venueId); if (!truck || !venue) return null; return <ScheduleCard key={entry.id} entry={entry} truck={truck} venue={venue} showDate={false} />; })}
               </div>
             </>
           )}
@@ -289,7 +279,7 @@ export default function HomeClient({ trucks, venues, schedule }: { trucks: Truck
                       </div>
                       <div className="space-y-1">
                         {daySchedule.slice(0, 3).map(entry => {
-                          const truck = getTruckById(entry.truckId, entry);
+                          const truck = getTruckById(entry.truckId);
                           if (!truck) return null;
                           return (
                             <div 
@@ -350,8 +340,8 @@ export default function HomeClient({ trucks, venues, schedule }: { trucks: Truck
                     <div className="p-6 overflow-y-auto">
                       <div className="space-y-4">
                         {scheduleByDate[selectedDate].map(entry => {
-                          const truck = getTruckById(entry.truckId, entry);
-                          const venue = getVenueById(entry.venueId, entry);
+                          const truck = getTruckById(entry.truckId);
+                          const venue = getVenueById(entry.venueId);
                           if (!truck || !venue) return null;
                           return (
                             <div key={entry.id} className="bg-stone-50 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-4">
@@ -359,7 +349,7 @@ export default function HomeClient({ trucks, venues, schedule }: { trucks: Truck
                                 <span className="text-3xl">🚚</span>
                                 <div className="flex-1 min-w-0">
                                   <div className="font-semibold text-stone-900 text-lg">{truck.name}</div>
-                                  <div className="text-sm text-stone-500">{truck.cuisineType || ''}</div>
+                                  <div className="text-sm text-stone-500">{truck.cuisineType}</div>
                                   <div className="text-sm text-stone-600 mt-1">
                                     📍 {venue.name}
                                   </div>
@@ -373,7 +363,6 @@ export default function HomeClient({ trucks, venues, schedule }: { trucks: Truck
                                   )}
                                 </div>
                               </div>
-                              {venue.lat && venue.lng ? (
                               <a 
                                 href={`https://www.google.com/maps/dir/?api=1&destination=${venue.lat},${venue.lng}`}
                                 target="_blank"
@@ -382,7 +371,6 @@ export default function HomeClient({ trucks, venues, schedule }: { trucks: Truck
                               >
                                 Get Directions
                               </a>
-                              ) : null}
                             </div>
                           );
                         })}
@@ -421,8 +409,8 @@ export default function HomeClient({ trucks, venues, schedule }: { trucks: Truck
                           </div>
                           <div className="p-6 grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {entries.map(entry => { 
-                              const truck = getTruckById(entry.truckId, entry); 
-                              const venue = getVenueById(entry.venueId, entry); 
+                              const truck = getTruckById(entry.truckId); 
+                              const venue = getVenueById(entry.venueId); 
                               if (!truck || !venue) return null; 
                               return <ScheduleCard key={entry.id} entry={entry} truck={truck} venue={venue} showDate={false} compact />; 
                             })}
