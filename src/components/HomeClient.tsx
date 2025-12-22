@@ -87,14 +87,14 @@ export default function HomeClient({ trucks, venues, schedule }: { trucks: Truck
     return g; 
   }, [schedule]);
   
-  const getTruckById = (id: string, entry?: ScheduleEntry) => {
-    if (id === 'other' && entry?.otherTruckName) {
+  const getTruckById = (id: string | null, entry?: ScheduleEntry) => {
+    if (!id && entry?.otherTruckName) {
       return { id: 'other', name: entry.otherTruckName, description: '', cuisineType: '' } as Truck;
     }
     return trucks.find(t => t.id === id);
   };
-  const getVenueById = (id: string, entry?: ScheduleEntry) => {
-    if (id === 'other' && entry?.otherVenueName) {
+  const getVenueById = (id: string | null, entry?: ScheduleEntry) => {
+    if (!id && entry?.otherVenueName) {
       return { id: 'other', name: entry.otherVenueName, description: '', address: '', lat: 0, lng: 0, type: '' } as Venue;
     }
     return venues.find(v => v.id === id);

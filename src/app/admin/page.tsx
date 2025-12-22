@@ -617,8 +617,8 @@ function ScheduleTab({ schedule, trucks, venues, isAdmin, onUpdate, showMessage 
       }
 
       const entryData = {
-        truck_id: form.truck_id === 'other' ? 'other' : form.truck_id,
-        venue_id: form.venue_id === 'other' ? 'other' : form.venue_id,
+        truck_id: form.truck_id === 'other' ? null : form.truck_id,
+        venue_id: form.venue_id === 'other' ? null : form.venue_id,
         start_time: form.start_time,
         end_time: form.end_time,
         event_name: form.event_name || null,
@@ -680,8 +680,8 @@ function ScheduleTab({ schedule, trucks, venues, isAdmin, onUpdate, showMessage 
     setEditing(entry.id);
     setMode('single');
     setForm({
-      truck_id: entry.truck_id,
-      venue_id: entry.venue_id,
+      truck_id: entry.truck_id || 'other',
+      venue_id: entry.venue_id || 'other',
       date: entry.date,
       start_time: entry.start_time,
       end_time: entry.end_time,
@@ -691,14 +691,14 @@ function ScheduleTab({ schedule, trucks, venues, isAdmin, onUpdate, showMessage 
     });
   }
 
-  const getTruckName = (id: string, entry?: ScheduleEntry) => {
-    if (id === 'other' && entry) {
+  const getTruckName = (id: string | null, entry?: ScheduleEntry) => {
+    if (!id && entry) {
       return (entry as any).other_truck_name || 'Other Truck';
     }
     return trucks.find(t => t.id === id)?.name || 'Unknown';
   };
-  const getVenueName = (id: string, entry?: ScheduleEntry) => {
-    if (id === 'other' && entry) {
+  const getVenueName = (id: string | null, entry?: ScheduleEntry) => {
+    if (!id && entry) {
       return (entry as any).other_venue_name || 'Other Venue';
     }
     return venues.find(v => v.id === id)?.name || 'Unknown';
