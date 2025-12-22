@@ -51,7 +51,7 @@ const MapSection = dynamic(() => import('@/components/MapSection'), {
 
 interface Truck { id: string; name: string; description: string; cuisineType: string; phone?: string; facebook?: string; instagram?: string; }
 interface Venue { id: string; name: string; description: string; address: string; lat: number; lng: number; type: string; phone?: string; website?: string; }
-interface ScheduleEntry { id: string; truckId: string; venueId: string; date: string; startTime: string; endTime: string; eventName?: string; otherTruckName?: string; otherVenueName?: string; }
+interface ScheduleEntry { id: string; truckId: string | null; venueId: string | null; date: string; startTime: string; endTime: string; eventName?: string; otherTruckName?: string; otherVenueName?: string; }
 
 export default function HomeClient({ trucks, venues, schedule }: { trucks: Truck[]; venues: Venue[]; schedule: ScheduleEntry[] }) {
   const [cuisineFilter, setCuisineFilter] = useState('all');

@@ -107,8 +107,8 @@ export interface Venue {
 
 export interface ScheduleEntry {
   id: string;
-  truck_id: string;
-  venue_id: string;
+  truck_id: string | null;
+  venue_id: string | null;
   date: string;
   start_time: string;
   end_time: string;

@@ -4,12 +4,13 @@ const icons: Record<string, string> = { 'BBQ': '🍖', 'Mexican': '🌮', 'Burge
 
 interface Truck { id: string; name: string; description: string; cuisineType: string; phone?: string; facebook?: string; instagram?: string; }
 interface Venue { id: string; name: string; }
-interface Schedule { truckId: string; venueId: string; date: string; startTime: string; endTime: string; }
+interface Schedule { truckId: string | null; venueId: string | null; date: string; startTime: string; endTime: string; otherVenueName?: string; }
 
 export default function TruckCard({ truck, schedule, venues }: { truck: Truck; schedule: Schedule[]; venues: Venue[] }) {
   const today = new Date().toISOString().split('T')[0];
   const next = schedule.filter(s => s.truckId === truck.id && s.date >= today).sort((a, b) => a.date.localeCompare(b.date))[0];
-  const venue = next ? venues.find(v => v.id === next.venueId) : null;
+  const venue = next?.venueId ? venues.find(v => v.id === next.venueId) : null;
+  const venueName = venue?.name || next?.otherVenueName || null;
   
   const fmtDate = (d: string) => { const dt = new Date(d + 'T12:00:00'); const t = new Date(); if (dt.toDateString() === t.toDateString()) return 'Today'; const tm = new Date(t); tm.setDate(tm.getDate() + 1); if (dt.toDateString() === tm.toDateString()) return 'Tomorrow'; return dt.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }); };
   const fmtTime = (t: string) => { const [h, m] = t.split(':'); const hr = parseInt(h); return `${hr % 12 || 12}${m !== '00' ? ':' + m : ''} ${hr >= 12 ? 'PM' : 'AM'}`; };
@@ -23,10 +24,10 @@ export default function TruckCard({ truck, schedule, venues }: { truck: Truck; s
       <div className="p-6">
         <h3 className="font-display text-xl font-bold text-stone-900 mb-2">{truck.name}</h3>
         <p className="text-stone-600 text-sm mb-4 line-clamp-2">{truck.description}</p>
-        {next && venue && (
+        {next && venueName && (
           <div className="mb-4 p-3 bg-ridge-50 rounded-xl">
             <div className="text-xs text-ridge-600 font-semibold uppercase tracking-wide mb-1">Next Appearance</div>
-            <div className="text-sm"><span className="font-semibold text-stone-900">{fmtDate(next.date)}</span> • <span className="text-stone-600">{venue.name}</span></div>
+            <div className="text-sm"><span className="font-semibold text-stone-900">{fmtDate(next.date)}</span> • <span className="text-stone-600">{venueName}</span></div>
             <div className="text-xs text-stone-500 mt-1">{fmtTime(next.startTime)} - {fmtTime(next.endTime)}</div>
           </div>
         )}
