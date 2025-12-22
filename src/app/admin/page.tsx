@@ -736,7 +736,6 @@ function ScheduleTab({ schedule, trucks, venues, isAdmin, onUpdate, showMessage 
                 value={form.truck_id} 
                 onChange={e => setForm({ ...form, truck_id: e.target.value, other_truck_name: e.target.value === 'other' ? form.other_truck_name : '' })} 
                 className="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-ridge-500 focus:border-ridge-500"
-                disabled={trucks.length === 1}
               >
                 <option value="">Select a truck...</option>
                 {trucks.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
