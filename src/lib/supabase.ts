@@ -145,8 +145,6 @@ export async function getVisibleVenues(): Promise<Venue[]> {
   if (error) { console.error('Error fetching visible venues:', error); return []; }
   return data || [];
 }
-  return data || [];
-}
 
 export async function getSchedule(): Promise<ScheduleEntry[]> {
   const today = getTodayET();
