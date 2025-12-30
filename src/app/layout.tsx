@@ -17,6 +17,9 @@ const sourceSans = Source_Sans_3({
 export const metadata: Metadata = {
   title: "What's Rollin' Local | Food Trucks in WNC",
   description: 'Your guide to food trucks, breweries & events in Western North Carolina. Find where your favorite food trucks are serving today.',
+  other: {
+    'facebook-domain-verification': 'chj3g9i1uulu27tfm3175ng5ve5kxn',
+  },
   openGraph: {
     title: "What's Rollin' Local",
     description: 'Your NEW source for finding food trucks, breweries and events in Hendersonville, Mills River, Etowah and beyond!',
