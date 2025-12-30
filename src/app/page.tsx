@@ -1,4 +1,4 @@
-import { getTrucks, getVenues, getSchedule } from '@/lib/supabase';
+import { getVisibleTrucks, getVisibleVenues, getSchedule } from '@/lib/supabase';
 import HomeClient from '@/components/HomeClient';
 
 export const dynamic = 'force-dynamic';
@@ -6,8 +6,8 @@ export const revalidate = 0;
 
 export default async function Home() {
   const [trucksRaw, venuesRaw, scheduleRaw] = await Promise.all([
-    getTrucks(),
-    getVenues(),
+    getVisibleTrucks(),
+    getVisibleVenues(),
     getSchedule(),
   ]);
 

@@ -234,6 +234,16 @@ function TrucksTab({ trucks, isAdmin, onUpdate, showMessage }: {
     }
   }
 
+  async function toggleVisibility(truck: Truck) {
+    try {
+      await updateTruck(truck.id, { is_visible: !truck.is_visible });
+      showMessage(truck.is_visible ? 'Truck hidden from public site' : 'Truck now visible on public site');
+      onUpdate();
+    } catch (err) {
+      showMessage('Error: ' + (err as Error).message);
+    }
+  }
+
   function startEdit(truck: Truck) {
     setEditing(truck.id);
     setForm({
@@ -360,15 +370,33 @@ function TrucksTab({ trucks, isAdmin, onUpdate, showMessage }: {
           ) : (
             <div className="divide-y divide-stone-100">
               {trucks.map(truck => (
-                <div key={truck.id} className="p-4 flex items-center justify-between hover:bg-stone-50">
-                  <div>
-                    <div className="font-semibold text-stone-900">{truck.name}</div>
-                    <div className="text-sm text-stone-500">
-                      {truck.cuisine_type || 'No cuisine set'} 
-                      {truck.phone && ` • ${truck.phone}`}
-                      {truck.user_id && isAdmin && (
-                        <span className="ml-2 text-ridge-600">• Assigned to: {truck.user_id}</span>
-                      )}
+                <div key={truck.id} className={`p-4 flex items-center justify-between hover:bg-stone-50 ${truck.is_visible === false ? 'opacity-50' : ''}`}>
+                  <div className="flex items-center gap-3">
+                    {isAdmin && (
+                      <button
+                        onClick={() => toggleVisibility(truck)}
+                        title={truck.is_visible === false ? 'Hidden - click to show on public site' : 'Visible - click to hide from public site'}
+                        className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
+                          truck.is_visible === false 
+                            ? 'bg-stone-200 text-stone-400' 
+                            : 'bg-green-100 text-green-600'
+                        }`}
+                      >
+                        {truck.is_visible === false ? '👁️‍🗨️' : '👁️'}
+                      </button>
+                    )}
+                    <div>
+                      <div className="font-semibold text-stone-900">
+                        {truck.name}
+                        {truck.is_visible === false && <span className="ml-2 text-xs text-stone-400">(hidden)</span>}
+                      </div>
+                      <div className="text-sm text-stone-500">
+                        {truck.cuisine_type || 'No cuisine set'} 
+                        {truck.phone && ` • ${truck.phone}`}
+                        {truck.user_id && isAdmin && (
+                          <span className="ml-2 text-ridge-600">• Assigned to: {truck.user_id}</span>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <div className="flex gap-2">
@@ -432,6 +460,16 @@ function VenuesTab({ venues, onUpdate, showMessage }: {
     try {
       await deleteVenue(id);
       showMessage('Venue deleted');
+      onUpdate();
+    } catch (err) {
+      showMessage('Error: ' + (err as Error).message);
+    }
+  }
+
+  async function toggleVisibility(venue: Venue) {
+    try {
+      await updateVenue(venue.id, { is_visible: !venue.is_visible });
+      showMessage(venue.is_visible ? 'Venue hidden from public site' : 'Venue now visible on public site');
       onUpdate();
     } catch (err) {
       showMessage('Error: ' + (err as Error).message);
@@ -507,10 +545,26 @@ function VenuesTab({ venues, onUpdate, showMessage }: {
           ) : (
             <div className="divide-y divide-stone-100">
               {venues.map(venue => (
-                <div key={venue.id} className="p-4 flex items-center justify-between hover:bg-stone-50">
-                  <div>
-                    <div className="font-semibold text-stone-900">{venue.name}</div>
-                    <div className="text-sm text-stone-500">{venue.type} • {venue.address || 'No address'}</div>
+                <div key={venue.id} className={`p-4 flex items-center justify-between hover:bg-stone-50 ${venue.is_visible === false ? 'opacity-50' : ''}`}>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => toggleVisibility(venue)}
+                      title={venue.is_visible === false ? 'Hidden - click to show on public site' : 'Visible - click to hide from public site'}
+                      className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
+                        venue.is_visible === false 
+                          ? 'bg-stone-200 text-stone-400' 
+                          : 'bg-green-100 text-green-600'
+                      }`}
+                    >
+                      {venue.is_visible === false ? '👁️‍🗨️' : '👁️'}
+                    </button>
+                    <div>
+                      <div className="font-semibold text-stone-900">
+                        {venue.name}
+                        {venue.is_visible === false && <span className="ml-2 text-xs text-stone-400">(hidden)</span>}
+                      </div>
+                      <div className="text-sm text-stone-500">{venue.type} • {venue.address || 'No address'}</div>
+                    </div>
                   </div>
                   <div className="flex gap-2">
                     <button onClick={() => startEdit(venue)} className="px-3 py-1 text-sm bg-stone-100 hover:bg-stone-200 rounded-lg">Edit</button>

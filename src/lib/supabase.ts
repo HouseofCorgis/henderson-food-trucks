@@ -91,6 +91,7 @@ export interface Truck {
   facebook: string | null;
   instagram: string | null;
   user_id?: string | null;
+  is_visible?: boolean;
 }
 
 export interface Venue {
@@ -103,6 +104,7 @@ export interface Venue {
   type: string | null;
   phone: string | null;
   website: string | null;
+  is_visible?: boolean;
 }
 
 export interface ScheduleEntry {
@@ -117,15 +119,32 @@ export interface ScheduleEntry {
   other_venue_name?: string | null;
 }
 
+// Get ALL trucks (for admin)
 export async function getTrucks(): Promise<Truck[]> {
   const { data, error } = await supabase.from('trucks').select('*').order('name');
   if (error) { console.error('Error fetching trucks:', error); return []; }
   return data || [];
 }
 
+// Get only VISIBLE trucks (for public site)
+export async function getVisibleTrucks(): Promise<Truck[]> {
+  const { data, error } = await supabase.from('trucks').select('*').eq('is_visible', true).order('name');
+  if (error) { console.error('Error fetching visible trucks:', error); return []; }
+  return data || [];
+}
+
 export async function getVenues(): Promise<Venue[]> {
   const { data, error } = await supabase.from('venues').select('*').order('name');
   if (error) { console.error('Error fetching venues:', error); return []; }
+  return data || [];
+}
+
+// Get only VISIBLE venues (for public site)
+export async function getVisibleVenues(): Promise<Venue[]> {
+  const { data, error } = await supabase.from('venues').select('*').eq('is_visible', true).order('name');
+  if (error) { console.error('Error fetching visible venues:', error); return []; }
+  return data || [];
+}
   return data || [];
 }
 
