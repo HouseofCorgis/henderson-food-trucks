@@ -72,9 +72,16 @@ export default function Footer() {
 
         {/* Bottom Bar */}
         <div className="mt-12 pt-8 border-t border-stone-800 flex flex-col md:flex-row justify-between items-center gap-4">
-          <p className="text-stone-500 text-sm">
-            © {currentYear} What's Rollin' Local. Made with 🧡 in the Blue Ridge Mountains.
-          </p>
+          <div className="flex flex-col md:flex-row items-center gap-2 md:gap-4">
+            <p className="text-stone-500 text-sm">
+              © {currentYear} What's Rollin' Local. Made with 🧡 in the Blue Ridge Mountains.
+            </p>
+            <div className="flex gap-3 text-sm">
+              <a href="/privacy" className="text-stone-500 hover:text-ridge-400 transition-colors">Privacy Policy</a>
+              <span className="text-stone-700">|</span>
+              <a href="/terms" className="text-stone-500 hover:text-ridge-400 transition-colors">Terms of Service</a>
+            </div>
+          </div>
           <p className="text-stone-500 text-sm">
             Food truck owner? <a href="mailto:hello@whatsrollinlocal.com?subject=Add My Food Truck" className="text-ridge-400 hover:text-ridge-300">Get listed free</a>
           </p>
