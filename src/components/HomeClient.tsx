@@ -53,7 +53,10 @@ interface Truck { id: string; name: string; description: string; cuisineType: st
 interface Venue { id: string; name: string; description: string; address: string; lat: number; lng: number; type: string; phone?: string; website?: string; }
 interface ScheduleEntry { id: string; truckId: string | null; venueId: string | null; date: string; startTime: string; endTime: string; eventName?: string; otherTruckName?: string; otherVenueName?: string; }
 
-export default function HomeClient({ trucks, venues, schedule }: { trucks: Truck[]; venues: Venue[]; schedule: ScheduleEntry[] }) {
+export default function HomeClient({ trucks, venues, allTrucks, allVenues, schedule }: { trucks: Truck[]; venues: Venue[]; allTrucks?: Truck[]; allVenues?: Venue[]; schedule: ScheduleEntry[] }) {
+  // Use allTrucks/allVenues for schedule lookups, fall back to trucks/venues if not provided
+  const scheduleTrucks = allTrucks || trucks;
+  const scheduleVenues = allVenues || venues;
   const [cuisineFilter, setCuisineFilter] = useState('all');
   const [scheduleView, setScheduleView] = useState<'list' | 'calendar'>('list');
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -91,13 +94,13 @@ export default function HomeClient({ trucks, venues, schedule }: { trucks: Truck
     if (!id && entry?.otherTruckName) {
       return { id: 'other', name: entry.otherTruckName, description: '', cuisineType: '' } as Truck;
     }
-    return trucks.find(t => t.id === id);
+    return scheduleTrucks.find(t => t.id === id);
   };
   const getVenueById = (id: string | null, entry?: ScheduleEntry) => {
     if (!id && entry?.otherVenueName) {
       return { id: 'other', name: entry.otherVenueName, description: '', address: '', lat: 0, lng: 0, type: '' } as Venue;
     }
-    return venues.find(v => v.id === id);
+    return scheduleVenues.find(v => v.id === id);
   };
 
   // Calendar helpers
@@ -182,7 +185,7 @@ export default function HomeClient({ trucks, venues, schedule }: { trucks: Truck
           </div>
           {todaysSchedule.length > 0 && (
             <>
-              <div className="mb-12"><MapSection scheduleEntries={todaysSchedule} venues={venues} trucks={trucks} /></div>
+              <div className="mb-12"><MapSection scheduleEntries={todaysSchedule} venues={scheduleVenues} trucks={scheduleTrucks} /></div>
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {todaysSchedule.map(entry => { const truck = getTruckById(entry.truckId, entry); const venue = getVenueById(entry.venueId, entry); if (!truck || !venue) return null; return <ScheduleCard key={entry.id} entry={entry} truck={truck} venue={venue} showDate={false} />; })}
               </div>

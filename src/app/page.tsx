@@ -1,17 +1,20 @@
-import { getVisibleTrucks, getVisibleVenues, getSchedule } from '@/lib/supabase';
+import { getTrucks, getVenues, getVisibleTrucks, getVisibleVenues, getSchedule } from '@/lib/supabase';
 import HomeClient from '@/components/HomeClient';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export default async function Home() {
-  const [trucksRaw, venuesRaw, scheduleRaw] = await Promise.all([
-    getVisibleTrucks(),
-    getVisibleVenues(),
+  const [allTrucksRaw, allVenuesRaw, visibleTrucksRaw, visibleVenuesRaw, scheduleRaw] = await Promise.all([
+    getTrucks(),        // All trucks (for schedule lookups)
+    getVenues(),        // All venues (for schedule lookups)
+    getVisibleTrucks(), // Only visible (for truck cards)
+    getVisibleVenues(), // Only visible (for venue cards)
     getSchedule(),
   ]);
 
-  const trucks = trucksRaw.map(t => ({
+  // All trucks/venues - used for schedule display
+  const allTrucks = allTrucksRaw.map(t => ({
     id: t.id,
     name: t.name,
     description: t.description || '',
@@ -21,7 +24,30 @@ export default async function Home() {
     instagram: t.instagram || undefined,
   }));
 
-  const venues = venuesRaw.map(v => ({
+  const allVenues = allVenuesRaw.map(v => ({
+    id: v.id,
+    name: v.name,
+    description: v.description || '',
+    address: v.address || '',
+    lat: v.lat || 0,
+    lng: v.lng || 0,
+    type: v.type || 'other',
+    phone: v.phone || undefined,
+    website: v.website || undefined,
+  }));
+
+  // Visible only - used for truck/venue card listings
+  const visibleTrucks = visibleTrucksRaw.map(t => ({
+    id: t.id,
+    name: t.name,
+    description: t.description || '',
+    cuisineType: t.cuisine_type || '',
+    phone: t.phone || undefined,
+    facebook: t.facebook || undefined,
+    instagram: t.instagram || undefined,
+  }));
+
+  const visibleVenues = visibleVenuesRaw.map(v => ({
     id: v.id,
     name: v.name,
     description: v.description || '',
@@ -45,5 +71,13 @@ export default async function Home() {
     otherVenueName: s.other_venue_name || undefined,
   }));
 
-  return <HomeClient trucks={trucks} venues={venues} schedule={schedule} />;
+  return (
+    <HomeClient 
+      trucks={visibleTrucks} 
+      venues={visibleVenues} 
+      allTrucks={allTrucks}
+      allVenues={allVenues}
+      schedule={schedule} 
+    />
+  );
 }
