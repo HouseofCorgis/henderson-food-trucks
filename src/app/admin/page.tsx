@@ -597,8 +597,8 @@ function ScheduleTab({ schedule, trucks, venues, isAdmin, onUpdate, showMessage 
     truck_id: '', 
     venue_id: '', 
     date: '', 
-    start_time: '17:00', 
-    end_time: '21:00', 
+    start_time: '16:00', 
+    end_time: '20:00', 
     event_name: '',
     other_truck_name: '',
     other_venue_name: ''
@@ -683,7 +683,7 @@ function ScheduleTab({ schedule, trucks, venues, isAdmin, onUpdate, showMessage 
       if (editing) {
         await updateScheduleEntry(editing, { ...entryData, date: form.date });
         showMessage('Schedule updated!');
-        setForm({ truck_id: trucks.length === 1 ? trucks[0].id : '', venue_id: '', date: '', start_time: '17:00', end_time: '21:00', event_name: '', other_truck_name: '', other_venue_name: '' });
+        setForm({ truck_id: trucks.length === 1 ? trucks[0].id : '', venue_id: '', date: '', start_time: '16:00', end_time: '20:00', event_name: '', other_truck_name: '', other_venue_name: '' });
         setEditing(null);
       } else {
         let datesToAdd: string[] = [];
@@ -709,7 +709,7 @@ function ScheduleTab({ schedule, trucks, venues, isAdmin, onUpdate, showMessage 
         }
         
         showMessage(`Added ${datesToAdd.length} schedule ${datesToAdd.length === 1 ? 'entry' : 'entries'}!`);
-        setForm({ truck_id: trucks.length === 1 ? trucks[0].id : '', venue_id: '', date: '', start_time: '17:00', end_time: '21:00', event_name: '', other_truck_name: '', other_venue_name: '' });
+        setForm({ truck_id: trucks.length === 1 ? trucks[0].id : '', venue_id: '', date: '', start_time: '16:00', end_time: '20:00', event_name: '', other_truck_name: '', other_venue_name: '' });
         setSelectedDates([]);
         setRecurringEndDate('');
       }
@@ -922,7 +922,7 @@ function ScheduleTab({ schedule, trucks, venues, isAdmin, onUpdate, showMessage 
               <button type="submit" className="flex-1 bg-ridge-600 hover:bg-ridge-700 text-white py-2 px-4 rounded-lg font-semibold transition-colors">
                 {editing ? 'Update' : mode === 'single' ? 'Add to Schedule' : `Add ${mode === 'multiple' ? selectedDates.length : getRecurringDates(recurringDay, recurringEndDate).length || 0} Entries`}
               </button>
-              {editing && <button type="button" onClick={() => { setEditing(null); setForm({ truck_id: trucks.length === 1 ? trucks[0].id : '', venue_id: '', date: '', start_time: '17:00', end_time: '21:00', event_name: '', other_truck_name: '', other_venue_name: '' }); }} className="px-4 py-2 bg-stone-200 hover:bg-stone-300 rounded-lg">Cancel</button>}
+              {editing && <button type="button" onClick={() => { setEditing(null); setForm({ truck_id: trucks.length === 1 ? trucks[0].id : '', venue_id: '', date: '', start_time: '16:00', end_time: '20:00', event_name: '', other_truck_name: '', other_venue_name: '' }); }} className="px-4 py-2 bg-stone-200 hover:bg-stone-300 rounded-lg">Cancel</button>}
             </div>
           </form>
         </div>

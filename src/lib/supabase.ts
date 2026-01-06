@@ -223,9 +223,12 @@ export async function getTrucksForUser(userEmail: string): Promise<Truck[]> {
 }
 
 // Get schedule entries for trucks owned by user (or all if super admin)
+// Only shows today and future events
 export async function getScheduleForUser(userEmail: string, truckIds?: string[]): Promise<ScheduleEntry[]> {
+  const today = getTodayET();
+  
   if (isSuperAdmin(userEmail)) {
-    const { data, error } = await supabase.from('schedule').select('*').order('date').order('start_time');
+    const { data, error } = await supabase.from('schedule').select('*').gte('date', today).order('date').order('start_time');
     if (error) { console.error('Error fetching schedule:', error); return []; }
     return data || [];
   }
@@ -243,6 +246,7 @@ export async function getScheduleForUser(userEmail: string, truckIds?: string[])
     .from('schedule')
     .select('*')
     .in('truck_id', ids)
+    .gte('date', today)
     .order('date')
     .order('start_time');
   
