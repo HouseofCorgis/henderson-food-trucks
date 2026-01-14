@@ -92,6 +92,150 @@ export default function AdminPage() {
     setTimeout(() => setMessage(''), 3000);
   }
 
+  async function downloadUsageReport() {
+    if (!isAdmin) return;
+    
+    showMessage('Generating report...');
+    
+    try {
+      // Get all schedule entries
+      const { data: allSchedule } = await supabase
+        .from('schedule')
+        .select('*')
+        .order('date', { ascending: false });
+      
+      if (!allSchedule) {
+        showMessage('No data to report');
+        return;
+      }
+
+      // Calculate truck usage
+      const truckUsage = new Map<string, { 
+        name: string; 
+        type: string; 
+        count: number; 
+        firstDate: string; 
+        lastDate: string;
+      }>();
+
+      allSchedule.forEach(entry => {
+        const truckName = entry.truck_id 
+          ? trucks.find(t => t.id === entry.truck_id)?.name || 'Unknown'
+          : entry.other_truck_name || 'Unknown';
+        const truckType = entry.truck_id ? 'Official' : 'Other';
+        const key = `${truckType}:${truckName}`;
+        
+        if (!truckUsage.has(key)) {
+          truckUsage.set(key, { 
+            name: truckName, 
+            type: truckType, 
+            count: 0, 
+            firstDate: entry.date,
+            lastDate: entry.date
+          });
+        }
+        
+        const usage = truckUsage.get(key)!;
+        usage.count++;
+        if (entry.date < usage.firstDate) usage.firstDate = entry.date;
+        if (entry.date > usage.lastDate) usage.lastDate = entry.date;
+      });
+
+      // Calculate venue usage
+      const venueUsage = new Map<string, { 
+        name: string; 
+        type: string; 
+        count: number; 
+        firstDate: string; 
+        lastDate: string;
+      }>();
+
+      allSchedule.forEach(entry => {
+        const venueName = entry.venue_id 
+          ? venues.find(v => v.id === entry.venue_id)?.name || 'Unknown'
+          : entry.other_venue_name || 'Unknown';
+        const venueType = entry.venue_id ? 'Official' : 'Other';
+        const key = `${venueType}:${venueName}`;
+        
+        if (!venueUsage.has(key)) {
+          venueUsage.set(key, { 
+            name: venueName, 
+            type: venueType, 
+            count: 0, 
+            firstDate: entry.date,
+            lastDate: entry.date
+          });
+        }
+        
+        const usage = venueUsage.get(key)!;
+        usage.count++;
+        if (entry.date < usage.firstDate) usage.firstDate = entry.date;
+        if (entry.date > usage.lastDate) usage.lastDate = entry.date;
+      });
+
+      // Calculate average per month and status
+      const calculateMonthlyAvg = (firstDate: string, lastDate: string, count: number) => {
+        const first = new Date(firstDate);
+        const last = new Date(lastDate);
+        const monthsDiff = (last.getFullYear() - first.getFullYear()) * 12 + 
+                          (last.getMonth() - first.getMonth()) + 1;
+        return (count / monthsDiff).toFixed(1);
+      };
+
+      const isActive = (lastDate: string) => {
+        const today = new Date();
+        const last = new Date(lastDate);
+        const daysDiff = Math.floor((today.getTime() - last.getTime()) / (1000 * 60 * 60 * 24));
+        return daysDiff <= 60 ? 'Active' : 'Inactive';
+      };
+
+      // Build CSV content
+      let csv = 'TRUCK USAGE REPORT\n\n';
+      csv += 'Truck Name,Type,Total Times Scheduled,First Date,Last Date,Avg Per Month,Status\n';
+      
+      const sortedTrucks = Array.from(truckUsage.values())
+        .sort((a, b) => b.count - a.count);
+      
+      sortedTrucks.forEach(truck => {
+        csv += `"${truck.name}",${truck.type},${truck.count},${truck.firstDate},${truck.lastDate},${calculateMonthlyAvg(truck.firstDate, truck.lastDate, truck.count)},${isActive(truck.lastDate)}\n`;
+      });
+
+      csv += '\n\nVENUE USAGE REPORT\n\n';
+      csv += 'Venue Name,Type,Total Times Used,First Date,Last Date,Avg Per Month,Status\n';
+      
+      const sortedVenues = Array.from(venueUsage.values())
+        .sort((a, b) => b.count - a.count);
+      
+      sortedVenues.forEach(venue => {
+        csv += `"${venue.name}",${venue.type},${venue.count},${venue.firstDate},${venue.lastDate},${calculateMonthlyAvg(venue.firstDate, venue.lastDate, venue.count)},${isActive(venue.lastDate)}\n`;
+      });
+
+      // Add summary
+      csv += '\n\nSUMMARY\n\n';
+      csv += `Total Trucks (Official),${sortedTrucks.filter(t => t.type === 'Official').length}\n`;
+      csv += `Total Trucks (Other),${sortedTrucks.filter(t => t.type === 'Other').length}\n`;
+      csv += `Total Venues (Official),${sortedVenues.filter(v => v.type === 'Official').length}\n`;
+      csv += `Total Venues (Other),${sortedVenues.filter(v => v.type === 'Other').length}\n`;
+      csv += `Total Schedule Entries,${allSchedule.length}\n`;
+
+      // Download CSV
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `usage-report-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      
+      showMessage('Report downloaded!');
+    } catch (err) {
+      console.error('Error generating report:', err);
+      showMessage('Error generating report');
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-stone-100">
@@ -116,6 +260,14 @@ export default function AdminPage() {
           </div>
           <div className="flex items-center gap-4">
             <span className="text-ridge-200 text-sm hidden sm:block">{user.email}</span>
+            {isAdmin && (
+              <button
+                onClick={downloadUsageReport}
+                className="px-4 py-2 bg-sunset-600 hover:bg-sunset-500 rounded-lg text-sm transition-colors"
+              >
+                📊 Download Report
+              </button>
+            )}
             <button
               onClick={handleSignOut}
               className="px-4 py-2 bg-ridge-600 hover:bg-ridge-500 rounded-lg text-sm transition-colors"
