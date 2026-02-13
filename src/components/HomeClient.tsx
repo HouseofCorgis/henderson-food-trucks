@@ -262,7 +262,7 @@ export default function HomeClient({ trucks, venues, allTrucks, allVenues, sched
                         <div className="mt-1 flex-1 overflow-hidden">
                           {displayedTrucks.map((name, i) => (
                             <div key={i} className={`text-xs truncate ${isToday ? 'text-white/90' : 'text-stone-600'}`}>
-                              🚚 {name}
+                              {name}
                             </div>
                           ))}
                           {remainingCount > 0 && (
