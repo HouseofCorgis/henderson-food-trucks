@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { analytics } from '@/lib/analytics';
 
 interface Truck { id: string; name: string; cuisineType: string; }
 interface Venue { id: string; name: string; address: string; lat: number; lng: number; }
@@ -46,12 +47,13 @@ export default function MapSection({ scheduleEntries, venues, trucks }: { schedu
       const venue = venues.find(v => v.id === venueId);
       if (!venue || !venue.lat || !venue.lng) return;
       
-      // Get truck names, handling "other" trucks
+      // Get truck names and IDs, handling "other" trucks
       const truckList = entries.map(e => {
         if (e.truckId) {
-          return trucks.find(t => t.id === e.truckId);
+          const truck = trucks.find(t => t.id === e.truckId);
+          return truck ? { ...truck, isOther: false } : null;
         } else if (e.otherTruckName) {
-          return { id: 'other', name: e.otherTruckName, cuisineType: '' };
+          return { id: 'other', name: e.otherTruckName, cuisineType: '', isOther: true };
         }
         return null;
       }).filter(Boolean);
@@ -65,9 +67,32 @@ export default function MapSection({ scheduleEntries, venues, trucks }: { schedu
         iconAnchor: [20, 20],
       });
       
-      const popup = `<div style="min-width:200px;font-family:system-ui"><b style="color:#4d7550">${venue.name}</b><br><small>${venue.address}</small><hr style="margin:8px 0">${truckList.map(t => `🚚 <b>${t!.name}</b>${t!.cuisineType ? ` <small>(${t!.cuisineType})</small>` : ''}`).join('<br>')}<br><a href="https://www.google.com/maps/dir/?api=1&destination=${venue.lat},${venue.lng}" target="_blank" style="display:block;text-align:center;background:#4d7550;color:white;padding:8px;border-radius:8px;text-decoration:none;margin-top:8px;font-size:12px">Get Directions</a></div>`;
+      // Build truck IDs for tracking (only real trucks, not "other")
+      const trackableTruckIds = truckList.filter(t => !t!.isOther).map(t => t!.id);
       
-      L.marker([venue.lat, venue.lng], { icon }).addTo(map).bindPopup(popup);
+      const popup = `<div style="min-width:200px;font-family:system-ui"><b style="color:#4d7550">${venue.name}</b><br><small>${venue.address}</small><hr style="margin:8px 0">${truckList.map(t => `🚚 <b>${t!.name}</b>${t!.cuisineType ? ` <small>(${t!.cuisineType})</small>` : ''}`).join('<br>')}<br><a href="https://www.google.com/maps/dir/?api=1&destination=${venue.lat},${venue.lng}" target="_blank" style="display:block;text-align:center;background:#4d7550;color:white;padding:8px;border-radius:8px;text-decoration:none;margin-top:8px;font-size:12px" data-truck-ids="${trackableTruckIds.join(',')}">Get Directions</a></div>`;
+      
+      const marker = L.marker([venue.lat, venue.lng], { icon }).addTo(map).bindPopup(popup);
+      
+      // Track map pin click when popup opens
+      marker.on('popupopen', () => {
+        trackableTruckIds.forEach(truckId => {
+          analytics.mapPinClick(truckId);
+        });
+        
+        // Add click handler for directions link in popup
+        setTimeout(() => {
+          const directionsLink = document.querySelector(`a[data-truck-ids="${trackableTruckIds.join(',')}"]`);
+          if (directionsLink) {
+            directionsLink.addEventListener('click', () => {
+              trackableTruckIds.forEach(truckId => {
+                analytics.directionsClick(truckId);
+              });
+            });
+          }
+        }, 100);
+      });
+      
       bounds.extend([venue.lat, venue.lng]);
     });
     
