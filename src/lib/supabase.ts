@@ -133,6 +133,27 @@ export async function getVisibleTrucks(): Promise<Truck[]> {
   return data || [];
 }
 
+// Get a single truck by ID
+export async function getTruckById(id: string): Promise<Truck | null> {
+  const { data, error } = await supabase.from('trucks').select('*').eq('id', id).single();
+  if (error) { console.error('Error fetching truck:', error); return null; }
+  return data;
+}
+
+// Get schedule entries for a specific truck
+export async function getScheduleForTruck(truckId: string): Promise<ScheduleEntry[]> {
+  const today = getTodayET();
+  const { data, error } = await supabase
+    .from('schedule')
+    .select('*')
+    .eq('truck_id', truckId)
+    .gte('date', today)
+    .order('date')
+    .order('start_time');
+  if (error) { console.error('Error fetching schedule for truck:', error); return []; }
+  return data || [];
+}
+
 export async function getVenues(): Promise<Venue[]> {
   const { data, error } = await supabase.from('venues').select('*').order('name');
   if (error) { console.error('Error fetching venues:', error); return []; }
