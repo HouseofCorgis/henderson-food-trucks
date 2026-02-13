@@ -355,7 +355,7 @@ function TrucksTab({ trucks, isAdmin, onUpdate, showMessage }: {
   const [editing, setEditing] = useState<string | null>(null);
   const [form, setForm] = useState({ name: '', description: '', cuisine_type: '', phone: '', facebook: '', instagram: '' });
 
-  const cuisineTypes = ['BBQ', 'Mexican', 'Burgers', 'Pizza', 'American', 'Seafood', 'South American', 'Mediterranean', 'Desserts', 'Coffee', 'Other'];
+  const cuisineTypes = ['BBQ', 'Mexican', 'Burgers', 'Pizza', 'American', 'Seafood', 'South American', 'Mediterranean', 'Desserts', 'Coffee', 'Indian', 'Other'];
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
