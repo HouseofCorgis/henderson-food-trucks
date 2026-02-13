@@ -230,31 +230,46 @@ export default function HomeClient({ trucks, venues, allTrucks, allVenues, sched
               
               <div className="grid grid-cols-7 gap-1">
                 {calendarDays.map((day, idx) => {
-                  if (!day) return <div key={idx} className="aspect-square" />;
+                  if (!day) return <div key={idx} className="min-h-[100px]" />;
                   
                   const dateStr = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
                   const daySchedule = scheduleByDate[dateStr] || [];
                   const isToday = dateStr === today;
                   const isPast = today && dateStr < today;
                   
+                  // Get truck names for this day (max 3 shown)
+                  const truckNames = daySchedule.map(entry => {
+                    const truck = getTruckById(entry.truckId, entry);
+                    return truck?.name || 'Unknown';
+                  });
+                  const displayedTrucks = truckNames.slice(0, 3);
+                  const remainingCount = truckNames.length - 3;
+                  
                   return (
                     <button
                       key={idx}
                       onClick={() => daySchedule.length > 0 && setSelectedDate(dateStr)}
                       disabled={daySchedule.length === 0}
-                      className={`aspect-square p-1 rounded-xl transition-all relative ${
+                      className={`min-h-[100px] p-2 rounded-xl transition-all text-left flex flex-col ${
                         isToday ? 'bg-sunset-500 text-white' :
                         isPast ? 'bg-stone-100 text-stone-400' :
                         daySchedule.length > 0 ? 'bg-ridge-100 hover:bg-ridge-200 text-ridge-700 cursor-pointer' :
                         'bg-white text-stone-400'
                       }`}
                     >
-                      <span className="text-sm font-medium">{day.getDate()}</span>
+                      <span className="text-sm font-bold">{day.getDate()}</span>
                       {daySchedule.length > 0 && (
-                        <div className="absolute bottom-1 left-1/2 -translate-x-1/2">
-                          <span className={`text-xs font-bold ${isToday ? 'text-white' : 'text-ridge-600'}`}>
-                            {daySchedule.length} 🚚
-                          </span>
+                        <div className="mt-1 flex-1 overflow-hidden">
+                          {displayedTrucks.map((name, i) => (
+                            <div key={i} className={`text-xs truncate ${isToday ? 'text-white/90' : 'text-stone-600'}`}>
+                              🚚 {name}
+                            </div>
+                          ))}
+                          {remainingCount > 0 && (
+                            <div className={`text-xs font-medium mt-1 ${isToday ? 'text-white/75' : 'text-ridge-500'}`}>
+                              +{remainingCount} more
+                            </div>
+                          )}
                         </div>
                       )}
                     </button>
