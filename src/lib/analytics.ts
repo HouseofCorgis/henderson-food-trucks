@@ -3,10 +3,10 @@
 import { createClient } from '@supabase/supabase-js';
 
 // Use your existing Supabase client, or create one here
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+const supabaseUrl = 'https://bnmgkgjnkupookrttsfu.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJubWdrZ2pua3Vwb29rcnR0c2Z1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUzMzgwNTEsImV4cCI6MjA4MDkxNDA1MX0.Jzvrb8y-sFk4919j8gYDriI9TGm7-le-2fU80k_BLUI';
+
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // Event types we track
 export type AnalyticsEvent = 
