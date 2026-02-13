@@ -44,6 +44,16 @@ function getTodayET(): string {
   return `${y}-${m}-${d}`;
 }
 
+// Helper function to get date X days from now in YYYY-MM-DD format
+function getDatePlusDays(baseDate: string, days: number): string {
+  const date = new Date(baseDate + 'T12:00:00');
+  date.setDate(date.getDate() + days);
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 const MapSection = dynamic(() => import('@/components/MapSection'), { 
   ssr: false,
   loading: () => <div className="h-[500px] bg-stone-200 animate-pulse rounded-xl flex items-center justify-center"><span className="text-stone-500">Loading map...</span></div>
@@ -73,6 +83,12 @@ export default function HomeClient({ trucks, venues, allTrucks, allVenues, sched
     setToday(getTodayET());
     setIsClient(true);
   }, []);
+
+  // Calculate the date 2 weeks from today for list view limit
+  const twoWeeksFromToday = useMemo(() => {
+    if (!today) return '';
+    return getDatePlusDays(today, 14);
+  }, [today]);
   
   const todaysSchedule = useMemo(() => {
     if (!today) return [];
@@ -150,181 +166,108 @@ export default function HomeClient({ trucks, venues, allTrucks, allVenues, sched
       <section className="relative bg-gradient-to-br from-ridge-700 via-ridge-600 to-ridge-800 text-white overflow-hidden">
         <div className="absolute inset-0 opacity-10"><svg className="w-full h-full" viewBox="0 0 1440 600" preserveAspectRatio="xMidYMid slice"><path d="M0 600 L200 300 L400 450 L600 200 L800 380 L1000 150 L1200 350 L1440 100 L1440 600 Z" fill="currentColor" /></svg></div>
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 lg:py-32">
-          <div className="flex items-center justify-between">
-            <div className="max-w-3xl">
-              <h1 className="font-display text-5xl lg:text-7xl font-bold mb-6">What&apos;s Rollin&apos;<span className="block text-sunset-400">Local</span></h1>
-              <p className="text-xl lg:text-2xl text-ridge-100 mb-8">Your guide to food trucks, breweries &amp; events in WNC</p>
-              <div className="flex flex-wrap gap-4">
-                <a href="#today" className="inline-flex items-center px-6 py-3 bg-sunset-500 hover:bg-sunset-600 text-white font-semibold rounded-full transition-all hover:scale-105 shadow-lg">Find Trucks Today</a>
-                <a href="#trucks" className="inline-flex items-center px-6 py-3 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-full border border-white/30">Browse All Trucks</a>
-              </div>
+          <div className="text-center">
+            <h1 className="font-display text-5xl lg:text-7xl font-bold mb-6">What's Rollin' Local</h1>
+            <p className="text-xl lg:text-2xl text-ridge-200 mb-8 max-w-2xl mx-auto">Your guide to food trucks, breweries & events in Henderson County</p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <a href="#schedule" className="px-8 py-4 bg-sunset-500 hover:bg-sunset-600 text-white font-semibold rounded-full transition-all hover:scale-105 shadow-lg">See Today's Trucks</a>
+              <a href="#trucks" className="px-8 py-4 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-full transition-all border border-white/30">Explore All Trucks</a>
             </div>
-            {/* Logo - hidden on mobile */}
-            <div className="hidden lg:block lg:mr-12 xl:mr-20">
-              <img 
-                src="/images/food-truck-logo.webp" 
-                alt="What's Rollin' Local food truck" 
-                className="h-72 lg:h-72 xl:h-80 w-auto object-contain drop-shadow-2xl hover:scale-105 transition-transform duration-300"
-              />
-            </div>
-          </div>
-          <div className="mt-16 grid grid-cols-3 gap-8 max-w-lg">
-            <div><div className="text-4xl font-display font-bold text-sunset-400">{trucks.length}</div><div className="text-ridge-200 text-sm">Food Trucks</div></div>
-            <div><div className="text-4xl font-display font-bold text-sunset-400">{venues.length}</div><div className="text-ridge-200 text-sm">Venues</div></div>
-            <div suppressHydrationWarning><div className="text-4xl font-display font-bold text-sunset-400">{todaysSchedule.length}</div><div className="text-ridge-200 text-sm">Serving Today</div></div>
           </div>
         </div>
-        <div className="mountain-divider-inverted"></div>
       </section>
 
       <section id="today" className="py-16 lg:py-24 bg-stone-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12" suppressHydrationWarning>
-            <h2 className="font-display text-4xl lg:text-5xl font-bold text-stone-900 mb-4">{todaysSchedule.length > 0 ? "Where to Find Trucks Today" : "No Trucks Scheduled Today"}</h2>
-            <p className="text-lg text-stone-600 max-w-2xl mx-auto">{todaysSchedule.length > 0 ? "Here's where food trucks are serving right now" : "Check back soon or browse the upcoming schedule below"}</p>
+          <div className="text-center mb-12">
+            <h2 className="font-display text-4xl lg:text-5xl font-bold text-stone-900 mb-4">Where to Find Trucks Today</h2>
+            <p className="text-lg text-stone-600">Here's where food trucks are serving right now</p>
           </div>
-          {todaysSchedule.length > 0 && (
-            <>
-              <div className="mb-12"><MapSection scheduleEntries={todaysSchedule} venues={scheduleVenues} trucks={scheduleTrucks} /></div>
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {todaysSchedule.map(entry => { const truck = getTruckById(entry.truckId, entry); const venue = getVenueById(entry.venueId, entry); if (!truck || !venue) return null; return <ScheduleCard key={entry.id} entry={entry} truck={truck} venue={venue} showDate={false} />; })}
-              </div>
-            </>
+          {todaysSchedule.length === 0 ? (
+            <div className="text-center py-12 bg-white rounded-2xl shadow-sm">
+              <p className="text-xl text-stone-500">No trucks scheduled for today.</p>
+              <p className="text-stone-400 mt-2">Check the upcoming schedule below!</p>
+            </div>
+          ) : (
+            <MapSection scheduleEntries={todaysSchedule} venues={scheduleVenues} trucks={scheduleTrucks} />
           )}
         </div>
       </section>
 
-      <section id="schedule" className="py-16 lg:py-24 bg-ridge-50">
+      <section id="schedule" className="py-16 lg:py-24 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-8">
-            <h2 className="font-display text-4xl lg:text-5xl font-bold text-stone-900 mb-4">Upcoming Schedule</h2>
-            <p className="text-lg text-stone-600 mb-6">Plan ahead and never miss your favorite truck</p>
-            
-            {/* View Toggle */}
-            <div className="inline-flex bg-white rounded-full p-1 shadow-sm">
-              <button
-                onClick={() => setScheduleView('list')}
-                className={`px-6 py-2 rounded-full text-sm font-medium transition-all ${
-                  scheduleView === 'list' 
-                    ? 'bg-ridge-600 text-white shadow-md' 
-                    : 'text-stone-600 hover:bg-stone-100'
-                }`}
-              >
-                📋 List
-              </button>
-              <button
-                onClick={() => setScheduleView('calendar')}
-                className={`px-6 py-2 rounded-full text-sm font-medium transition-all ${
-                  scheduleView === 'calendar' 
-                    ? 'bg-ridge-600 text-white shadow-md' 
-                    : 'text-stone-600 hover:bg-stone-100'
-                }`}
-              >
-                📅 Calendar
-              </button>
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
+            <div>
+              <h2 className="font-display text-4xl lg:text-5xl font-bold text-stone-900 mb-2">Upcoming Schedule</h2>
+              <p className="text-lg text-stone-600">Plan your food truck visits</p>
+            </div>
+            <div className="flex gap-2 bg-stone-100 p-1 rounded-xl">
+              <button onClick={() => setScheduleView('list')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${scheduleView === 'list' ? 'bg-white shadow-sm text-ridge-700' : 'text-stone-600 hover:text-stone-900'}`}>List</button>
+              <button onClick={() => setScheduleView('calendar')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${scheduleView === 'calendar' ? 'bg-white shadow-sm text-ridge-700' : 'text-stone-600 hover:text-stone-900'}`}>Calendar</button>
             </div>
           </div>
 
           {/* Calendar View */}
           {scheduleView === 'calendar' && (
-            <div className="bg-white rounded-2xl shadow-sm overflow-hidden relative">
-              {/* Calendar Header */}
-              <div className="bg-ridge-600 text-white px-6 py-4 flex items-center justify-between">
-                <button 
-                  onClick={prevMonth}
-                  className="p-2 hover:bg-ridge-500 rounded-lg transition-colors"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
+            <div className="bg-stone-50 rounded-2xl p-6">
+              <div className="flex items-center justify-between mb-6">
+                <button onClick={prevMonth} className="p-2 hover:bg-stone-200 rounded-lg transition-colors">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                 </button>
-                <h3 className="font-display text-2xl font-bold">
+                <h3 className="font-display text-2xl font-bold text-stone-900">
                   {calendarMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
                 </h3>
-                <button 
-                  onClick={nextMonth}
-                  className="p-2 hover:bg-ridge-500 rounded-lg transition-colors"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
+                <button onClick={nextMonth} className="p-2 hover:bg-stone-200 rounded-lg transition-colors">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                 </button>
               </div>
-
-              {/* Day Headers */}
-              <div className="grid grid-cols-7 bg-stone-100">
+              
+              <div className="grid grid-cols-7 gap-1 mb-2">
                 {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                  <div key={day} className="py-3 text-center text-sm font-semibold text-stone-600">
-                    {day}
-                  </div>
+                  <div key={day} className="text-center text-sm font-medium text-stone-500 py-2">{day}</div>
                 ))}
               </div>
-
-              {/* Calendar Grid */}
-              <div className="grid grid-cols-7">
-                {calendarDays.map((date, index) => {
-                  if (!date) {
-                    return <div key={`empty-${index}`} className="min-h-[120px] bg-stone-50 border-t border-r border-stone-200" />;
-                  }
+              
+              <div className="grid grid-cols-7 gap-1">
+                {calendarDays.map((day, idx) => {
+                  if (!day) return <div key={idx} className="aspect-square" />;
                   
-                  const dateStr = date.toISOString().split('T')[0];
+                  const dateStr = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
                   const daySchedule = scheduleByDate[dateStr] || [];
                   const isToday = dateStr === today;
-                  const isPast = dateStr < today;
-                  const isSelected = dateStr === selectedDate;
+                  const isPast = today && dateStr < today;
                   
                   return (
-                    <div 
-                      key={dateStr}
-                      onClick={() => daySchedule.length > 0 ? setSelectedDate(isSelected ? null : dateStr) : null}
-                      className={`min-h-[120px] border-t border-r border-stone-200 p-2 transition-colors ${
-                        isPast ? 'bg-stone-100 opacity-60' : 'bg-white'
-                      } ${daySchedule.length > 0 && !isPast ? 'cursor-pointer hover:bg-ridge-50' : ''} ${
-                        isSelected ? 'ring-2 ring-ridge-500 ring-inset bg-ridge-50' : ''
+                    <button
+                      key={idx}
+                      onClick={() => daySchedule.length > 0 && setSelectedDate(dateStr)}
+                      disabled={daySchedule.length === 0}
+                      className={`aspect-square p-1 rounded-xl transition-all relative ${
+                        isToday ? 'bg-sunset-500 text-white' :
+                        isPast ? 'bg-stone-100 text-stone-400' :
+                        daySchedule.length > 0 ? 'bg-ridge-100 hover:bg-ridge-200 text-ridge-700 cursor-pointer' :
+                        'bg-white text-stone-400'
                       }`}
                     >
-                      <div className={`text-sm font-semibold mb-1 ${
-                        isToday 
-                          ? 'bg-sunset-500 text-white w-7 h-7 rounded-full flex items-center justify-center' 
-                          : isPast ? 'text-stone-400' : 'text-stone-700'
-                      }`}>
-                        {date.getDate()}
-                      </div>
-                      <div className="space-y-1">
-                        {daySchedule.slice(0, 3).map(entry => {
-                          const truck = getTruckById(entry.truckId, entry);
-                          if (!truck) return null;
-                          return (
-                            <div 
-                              key={entry.id} 
-                              className={`text-xs px-1.5 py-0.5 rounded truncate ${
-                                isPast 
-                                  ? 'bg-stone-200 text-stone-500' 
-                                  : 'bg-ridge-100 text-ridge-700'
-                              }`}
-                              title={truck.name}
-                            >
-                              {truck.name}
-                            </div>
-                          );
-                        })}
-                        {daySchedule.length > 3 && (
-                          <div className="text-xs text-stone-500 px-1.5">
-                            +{daySchedule.length - 3} more
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                      <span className="text-sm font-medium">{day.getDate()}</span>
+                      {daySchedule.length > 0 && (
+                        <div className="absolute bottom-1 left-1/2 -translate-x-1/2">
+                          <span className={`text-xs font-bold ${isToday ? 'text-white' : 'text-ridge-600'}`}>
+                            {daySchedule.length} 🚚
+                          </span>
+                        </div>
+                      )}
+                    </button>
                   );
                 })}
               </div>
 
-              {/* Popup Modal */}
+              {/* Date Detail Modal */}
               {selectedDate && scheduleByDate[selectedDate] && (
                 <>
                   {/* Backdrop */}
                   <div 
-                    className="fixed inset-0 bg-black/40 z-40"
+                    className="fixed inset-0 bg-black/50 z-40"
                     onClick={() => setSelectedDate(null)}
                   />
                   
@@ -400,12 +343,12 @@ export default function HomeClient({ trucks, venues, allTrucks, allVenues, sched
           {/* List View */}
           {scheduleView === 'list' && (
             <div suppressHydrationWarning>
-              {Object.keys(scheduleByDate).filter(date => !today || date >= today).length === 0 ? (
+              {Object.keys(scheduleByDate).filter(date => !today || (date >= today && date <= twoWeeksFromToday)).length === 0 ? (
                 <p className="text-center text-stone-500 py-12">No upcoming events scheduled.</p>
               ) : (
                 <div className="space-y-8">
                   {Object.entries(scheduleByDate)
-                    .filter(([date]) => !today || date >= today)
+                    .filter(([date]) => !today || (date >= today && date <= twoWeeksFromToday))
                     .sort(([a], [b]) => a.localeCompare(b))
                     .map(([date, entries]) => {
                       const dateObj = new Date(date + 'T12:00:00');
@@ -433,6 +376,10 @@ export default function HomeClient({ trucks, venues, allTrucks, allVenues, sched
                         </div>
                       );
                     })}
+                  {/* Show message about more dates in calendar */}
+                  <div className="text-center py-4">
+                    <p className="text-stone-500 text-sm">Looking further ahead? <button onClick={() => setScheduleView('calendar')} className="text-ridge-600 font-medium hover:underline">Switch to calendar view</button> to see all scheduled dates.</p>
+                  </div>
                 </div>
               )}
             </div>
