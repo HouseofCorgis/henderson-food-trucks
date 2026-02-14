@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import AirtableSync from '@/components/AirtableSync';
 import { 
   supabase, 
   Truck, 
@@ -27,7 +28,7 @@ import {
 } from '@/lib/supabase';
 import type { User } from '@supabase/supabase-js';
 
-type Tab = 'trucks' | 'venues' | 'schedule' | 'users';
+type Tab = 'trucks' | 'venues' | 'schedule' | 'users' | 'import';
 
 export default function AdminPage() {
   const [user, setUser] = useState<User | null>(null);
@@ -284,7 +285,7 @@ export default function AdminPage() {
 
       <div className="max-w-6xl mx-auto p-4">
         <div className="flex flex-wrap gap-2 mb-6">
-          {(['schedule', 'trucks', ...(isAdmin ? ['venues', 'users'] : [])] as Tab[]).map(tab => (
+          {(['schedule', 'trucks', ...(isAdmin ? ['venues', 'users', 'import'] : [])] as Tab[]).map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -294,7 +295,7 @@ export default function AdminPage() {
                   : 'bg-white text-stone-600 hover:bg-stone-50'
               }`}
             >
-              {tab === 'users' ? '👥 Manage Users' : tab} 
+              {tab === 'users' ? '👥 Manage Users' : tab === 'import' ? '📥 Import' : tab} 
               {tab === 'trucks' && ` (${trucks.length})`}
               {tab === 'venues' && ` (${venues.length})`}
               {tab === 'schedule' && ` (${schedule.length})`}
@@ -339,6 +340,9 @@ export default function AdminPage() {
             onUpdate={() => user && loadData(user)} 
             showMessage={showMessage} 
           />
+        )}
+        {activeTab === 'import' && isAdmin && (
+          <AirtableSync />
         )}
       </div>
     </div>
