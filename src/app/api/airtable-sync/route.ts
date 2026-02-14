@@ -225,30 +225,48 @@ export async function POST(request: NextRequest) {
         const startTime = normalizeTime(airtableEntry.startTime);
         const endTime = normalizeTime(airtableEntry.endTime);
 
+        console.log('Processing entry:', {
+          airtableId,
+          date: airtableEntry.date,
+          rawStartTime: airtableEntry.startTime,
+          rawEndTime: airtableEntry.endTime,
+          normalizedStartTime: startTime,
+          normalizedEndTime: endTime,
+          truckName: airtableEntry.truckName,
+          venue: airtableEntry.venue,
+          finalTruckId,
+          finalVenueId,
+        });
+
         if (!airtableEntry.date || !startTime || !endTime) {
-          results.push({ airtableId, success: false, error: 'Missing date or time' });
+          results.push({ airtableId, success: false, error: `Missing date or time. Date: ${airtableEntry.date}, Start: ${startTime}, End: ${endTime}` });
           continue;
         }
 
         // Create schedule entry in Supabase
-        await addScheduleEntry({
+        const entryData = {
           truck_id: finalTruckId || null,
           venue_id: finalVenueId || null,
           date: airtableEntry.date,
           start_time: startTime,
           end_time: endTime,
           event_name: airtableEntry.eventName || null,
-          other_truck_name: finalTruckId ? null : airtableEntry.truckName,
-          other_venue_name: finalVenueId ? null : airtableEntry.venue,
-        });
+          other_truck_name: finalTruckId ? null : (airtableEntry.truckName || null),
+          other_venue_name: finalVenueId ? null : (airtableEntry.venue || null),
+        };
+        
+        console.log('Inserting entry:', entryData);
+        
+        await addScheduleEntry(entryData);
 
         successfulIds.push(airtableId);
         results.push({ airtableId, success: true });
       } catch (error) {
+        console.error('Sync error for', airtableId, ':', error);
         results.push({ 
           airtableId, 
           success: false, 
-          error: error instanceof Error ? error.message : 'Unknown error' 
+          error: error instanceof Error ? error.message : String(error) || 'Unknown error' 
         });
       }
     }
