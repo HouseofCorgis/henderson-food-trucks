@@ -1,10 +1,16 @@
 // app/api/airtable-sync/route.ts
 
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 import { fetchAirtableSchedule, fetchAirtableTrucks, markRecordsAsSynced, AirtableScheduleEntry } from '@/lib/airtable';
-import { getTrucks, getVenues, addScheduleEntry } from '@/lib/supabase';
+import { getTrucks, getVenues } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
+
+// Create a Supabase client with service role for bypassing RLS
+const supabaseUrl = 'https://bnmgkgjnkupookrttsfu.supabase.co';
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
 // Helper to convert time formats to HH:MM:SS
 function normalizeTime(time: string | null): string | null {
@@ -257,7 +263,11 @@ export async function POST(request: NextRequest) {
         
         console.log('Inserting entry:', entryData);
         
-        await addScheduleEntry(entryData);
+        const { error: insertError } = await supabaseAdmin.from('schedule').insert(entryData);
+        
+        if (insertError) {
+          throw insertError;
+        }
 
         successfulIds.push(airtableId);
         results.push({ airtableId, success: true });
