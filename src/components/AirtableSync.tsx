@@ -46,7 +46,7 @@ export default function AirtableSync() {
         setPreview(data.preview);
         setSummary(data.summary);
         // Auto-select all ready items
-        const readyIds = new Set(data.preview.filter((p: SyncPreviewItem) => p.status === 'ready').map((p: SyncPreviewItem) => p.airtableId));
+        const readyIds = new Set<string>(data.preview.filter((p: SyncPreviewItem) => p.status === 'ready').map((p: SyncPreviewItem) => p.airtableId));
         setSelectedItems(readyIds);
       } else {
         setError(data.error || 'Failed to fetch preview');
@@ -112,7 +112,7 @@ export default function AirtableSync() {
 
   const selectAllReady = () => {
     if (preview) {
-      const readyIds = new Set(preview.filter(p => p.status === 'ready').map(p => p.airtableId));
+      const readyIds = new Set<string>(preview.filter(p => p.status === 'ready').map(p => p.airtableId));
       setSelectedItems(readyIds);
     }
   };
