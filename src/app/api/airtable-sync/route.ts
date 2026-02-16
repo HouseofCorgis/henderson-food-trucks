@@ -2,7 +2,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { fetchAirtableSchedule, fetchAirtableTrucks, markRecordsAsSynced, AirtableScheduleEntry } from '@/lib/airtable';
+import { fetchAirtableSchedule, fetchAirtableTrucks, fetchAirtableVenues, markRecordsAsSynced, AirtableScheduleEntry } from '@/lib/airtable';
 import { getTrucks, getVenues } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
@@ -109,9 +109,10 @@ export async function GET(request: NextRequest) {
     const unsyncedOnly = searchParams.get('unsynced') !== 'false';
     
     // Fetch data from both sources
-    const [airtableSchedule, airtableTrucks, supabaseTrucks, supabaseVenues] = await Promise.all([
+    const [airtableSchedule, airtableTrucks, airtableVenues, supabaseTrucks, supabaseVenues] = await Promise.all([
       fetchAirtableSchedule(unsyncedOnly),
       fetchAirtableTrucks(),
+      fetchAirtableVenues(),
       getTrucks(),
       getVenues(),
     ]);
@@ -120,36 +121,60 @@ export async function GET(request: NextRequest) {
     const preview: SyncPreviewItem[] = airtableSchedule.map(entry => {
       // Resolve truck name from Airtable linked record
       let truckName = entry.truckName;
+      let isOtherTruck = false;
+      
       if (truckName) {
         // Check if it's an Airtable record ID (starts with "rec")
         const airtableTruck = airtableTrucks.find(t => t.id === truckName);
         if (airtableTruck) {
           truckName = airtableTruck.name;
+          // Check if it's the "Other" placeholder
+          if (truckName.toLowerCase() === 'other') {
+            isOtherTruck = true;
+            truckName = entry.otherTruckName; // Use the other truck name field
+          }
         }
       }
 
-      const matchedTruck = findMatchingTruck(truckName, supabaseTrucks);
-      const matchedVenue = findMatchingVenue(entry.venue, supabaseVenues);
+      // Resolve venue name from Airtable linked record
+      let venueName = entry.venue;
+      let isOtherVenue = false;
+      
+      if (venueName) {
+        // Check if it's an Airtable record ID (starts with "rec")
+        const airtableVenue = airtableVenues.find(v => v.id === venueName);
+        if (airtableVenue) {
+          venueName = airtableVenue.name;
+          // Check if it's the "Other" placeholder
+          if (venueName.toLowerCase() === 'other') {
+            isOtherVenue = true;
+            venueName = entry.otherVenueName; // Use the other venue name field
+          }
+        }
+      }
+
+      const matchedTruck = isOtherTruck ? null : findMatchingTruck(truckName, supabaseTrucks);
+      const matchedVenue = isOtherVenue ? null : findMatchingVenue(venueName, supabaseVenues);
       
       let status: SyncPreviewItem['status'] = 'ready';
       
-      if (!matchedTruck && truckName) {
-        status = 'missing_truck';
-      } else if (!matchedVenue && entry.venue) {
-        status = 'missing_venue';
-      } else if (!entry.date) {
+      if (!entry.date) {
         status = 'missing_date';
       } else if (!entry.startTime || !entry.endTime) {
         status = 'missing_time';
-      } else if (!matchedTruck && !truckName) {
+      } else if (!matchedTruck && !isOtherTruck && truckName) {
+        status = 'missing_truck';
+      } else if (!matchedVenue && !isOtherVenue && venueName) {
+        status = 'missing_venue';
+      } else if (!truckName && !entry.otherTruckName) {
         status = 'missing_truck';
       }
 
       return {
         airtableId: entry.airtableId,
         airtableName: entry.name,
-        truckName,
-        venueName: entry.venue,
+        truckName: isOtherTruck ? entry.otherTruckName : truckName,
+        venueName: isOtherVenue ? entry.otherVenueName : venueName,
         date: entry.date,
         startTime: entry.startTime,
         endTime: entry.endTime,
@@ -157,7 +182,9 @@ export async function GET(request: NextRequest) {
         matchedTruck: matchedTruck ? { id: matchedTruck.id, name: matchedTruck.name } : null,
         matchedVenue: matchedVenue ? { id: matchedVenue.id, name: matchedVenue.name } : null,
         status,
-      };
+        isOtherTruck,
+        isOtherVenue,
+      } as SyncPreviewItem;
     });
 
     return NextResponse.json({ 
@@ -189,9 +216,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Fetch current data
-    const [airtableSchedule, airtableTrucks, supabaseTrucks, supabaseVenues] = await Promise.all([
+    const [airtableSchedule, airtableTrucks, airtableVenues, supabaseTrucks, supabaseVenues] = await Promise.all([
       fetchAirtableSchedule(false), // Fetch all to find the items
       fetchAirtableTrucks(),
+      fetchAirtableVenues(),
       getTrucks(),
       getVenues(),
     ]);
@@ -211,20 +239,48 @@ export async function POST(request: NextRequest) {
 
         // Resolve truck
         let finalTruckId = truckId;
+        let otherTruckName: string | null = null;
+        
         if (!finalTruckId && airtableEntry.truckName) {
           let truckName = airtableEntry.truckName;
           const airtableTruck = airtableTrucks.find(t => t.id === truckName);
-          if (airtableTruck) truckName = airtableTruck.name;
-          
-          const matchedTruck = findMatchingTruck(truckName, supabaseTrucks);
-          finalTruckId = matchedTruck?.id || null;
+          if (airtableTruck) {
+            truckName = airtableTruck.name;
+            // Check if it's the "Other" placeholder
+            if (truckName.toLowerCase() === 'other') {
+              otherTruckName = airtableEntry.otherTruckName;
+              finalTruckId = null;
+            } else {
+              const matchedTruck = findMatchingTruck(truckName, supabaseTrucks);
+              finalTruckId = matchedTruck?.id || null;
+            }
+          } else {
+            const matchedTruck = findMatchingTruck(truckName, supabaseTrucks);
+            finalTruckId = matchedTruck?.id || null;
+          }
         }
 
         // Resolve venue
         let finalVenueId = venueId;
+        let otherVenueName: string | null = null;
+        
         if (!finalVenueId && airtableEntry.venue) {
-          const matchedVenue = findMatchingVenue(airtableEntry.venue, supabaseVenues);
-          finalVenueId = matchedVenue?.id || null;
+          let venueName = airtableEntry.venue;
+          const airtableVenue = airtableVenues.find(v => v.id === venueName);
+          if (airtableVenue) {
+            venueName = airtableVenue.name;
+            // Check if it's the "Other" placeholder
+            if (venueName.toLowerCase() === 'other') {
+              otherVenueName = airtableEntry.otherVenueName;
+              finalVenueId = null;
+            } else {
+              const matchedVenue = findMatchingVenue(venueName, supabaseVenues);
+              finalVenueId = matchedVenue?.id || null;
+            }
+          } else {
+            const matchedVenue = findMatchingVenue(venueName, supabaseVenues);
+            finalVenueId = matchedVenue?.id || null;
+          }
         }
 
         // Normalize times
@@ -242,6 +298,8 @@ export async function POST(request: NextRequest) {
           venue: airtableEntry.venue,
           finalTruckId,
           finalVenueId,
+          otherTruckName,
+          otherVenueName,
         });
 
         if (!airtableEntry.date || !startTime || !endTime) {
@@ -257,8 +315,8 @@ export async function POST(request: NextRequest) {
           start_time: startTime,
           end_time: endTime,
           event_name: airtableEntry.eventName || null,
-          other_truck_name: finalTruckId ? null : (airtableEntry.truckName || null),
-          other_venue_name: finalVenueId ? null : (airtableEntry.venue || null),
+          other_truck_name: otherTruckName || null,
+          other_venue_name: otherVenueName || null,
         };
         
         console.log('Inserting entry:', entryData);

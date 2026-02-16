@@ -18,6 +18,8 @@ export interface AirtableScheduleEntry {
   name: string;
   truckName: string | null;
   venue: string | null;
+  otherTruckName: string | null;
+  otherVenueName: string | null;
   date: string | null;
   startTime: string | null;
   endTime: string | null;
@@ -115,18 +117,23 @@ export async function fetchAirtableSchedule(unsyncedOnly: boolean = true): Promi
 
   return records.map(record => {
     // Truck is a linked record, so it comes as an array of record IDs
-    // We need to get the name from the linked record
     const truckLink = record.fields['Truck'];
     let truckName: string | null = null;
     
-    // If Truck is a linked field, it might be an array of record IDs or have a lookup
-    // For now, we'll handle it as either a string or array
     if (Array.isArray(truckLink) && truckLink.length > 0) {
-      // It's a linked record - we'll need to resolve this
-      // For now, store the ID and we'll match by name in the sync
-      truckName = truckLink[0]; // This might be an ID, we'll handle in sync
+      truckName = truckLink[0]; // This is an ID, we'll resolve it in sync
     } else if (typeof truckLink === 'string') {
       truckName = truckLink;
+    }
+
+    // Venue is also a linked record
+    const venueLink = record.fields['Venue'];
+    let venueName: string | null = null;
+    
+    if (Array.isArray(venueLink) && venueLink.length > 0) {
+      venueName = venueLink[0]; // This is an ID, we'll resolve it in sync
+    } else if (typeof venueLink === 'string') {
+      venueName = venueLink;
     }
 
     // Format date to YYYY-MM-DD if present
@@ -140,7 +147,9 @@ export async function fetchAirtableSchedule(unsyncedOnly: boolean = true): Promi
       airtableId: record.id,
       name: record.fields['Name'] || '',
       truckName,
-      venue: record.fields['Venue'] || null,
+      venue: venueName,
+      otherTruckName: record.fields['Other Truck Name'] || null,
+      otherVenueName: record.fields['Other Venue Name'] || null,
       date: formattedDate,
       startTime: record.fields['Start Time'] || null,
       endTime: record.fields['End Time'] || null,
@@ -153,6 +162,15 @@ export async function fetchAirtableSchedule(unsyncedOnly: boolean = true): Promi
 // Fetch trucks from Airtable to help with matching
 export async function fetchAirtableTrucks(): Promise<{ id: string; name: string }[]> {
   const records = await fetchAirtableRecords('Trucks');
+  return records.map(record => ({
+    id: record.id,
+    name: record.fields['Name'] || '',
+  }));
+}
+
+// Fetch venues from Airtable to help with matching
+export async function fetchAirtableVenues(): Promise<{ id: string; name: string }[]> {
+  const records = await fetchAirtableRecords('Venues');
   return records.map(record => ({
     id: record.id,
     name: record.fields['Name'] || '',
