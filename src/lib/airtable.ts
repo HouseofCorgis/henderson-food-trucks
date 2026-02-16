@@ -116,6 +116,9 @@ export async function fetchAirtableSchedule(unsyncedOnly: boolean = true): Promi
   const records = await fetchAirtableRecords('Calendar', filterFormula);
 
   return records.map(record => {
+    // Debug: log raw record fields
+    console.log('Raw Airtable record fields:', JSON.stringify(record.fields));
+    
     // Truck is a linked record, so it comes as an array of record IDs
     const truckLink = record.fields['Truck'];
     let truckName: string | null = null;
@@ -142,6 +145,10 @@ export async function fetchAirtableSchedule(unsyncedOnly: boolean = true): Promi
       const date = new Date(record.fields['Date']);
       formattedDate = date.toISOString().split('T')[0];
     }
+
+    // Debug: log the other name fields specifically
+    console.log('Other Truck Name field:', record.fields['Other Truck Name']);
+    console.log('Other Venue Name field:', record.fields['Other Venue Name']);
 
     return {
       airtableId: record.id,
