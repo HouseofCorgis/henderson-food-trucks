@@ -2,7 +2,16 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { fetchAirtableSchedule, fetchAirtableTrucks, fetchAirtableVenues, markRecordsAsSynced, AirtableScheduleEntry } from '@/lib/airtable';
+import { 
+  fetchAirtableSchedule, 
+  fetchAirtableTrucks, 
+  fetchAirtableVenues, 
+  fetchAirtableTrucksForSync,
+  fetchAirtableVenuesForSync,
+  markRecordsAsSynced,
+  markRecordsAsSyncedInTable,
+  AirtableScheduleEntry 
+} from '@/lib/airtable';
 import { getTrucks, getVenues } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
@@ -107,7 +116,84 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const unsyncedOnly = searchParams.get('unsynced') !== 'false';
+    const syncType = searchParams.get('type') || 'schedule'; // 'schedule', 'trucks', or 'venues'
     
+    if (syncType === 'trucks') {
+      // Fetch trucks for sync preview
+      const [airtableTrucks, supabaseTrucks] = await Promise.all([
+        fetchAirtableTrucksForSync(unsyncedOnly),
+        getTrucks(),
+      ]);
+      
+      const preview = airtableTrucks.map(truck => {
+        const existsInSupabase = supabaseTrucks.some(st => 
+          st.name.toLowerCase().trim() === truck.name.toLowerCase().trim()
+        );
+        
+        return {
+          airtableId: truck.airtableId,
+          name: truck.name,
+          cuisine: truck.cuisine,
+          phone: truck.phone,
+          facebook: truck.facebook,
+          instagram: truck.instagram,
+          website: truck.website,
+          existsInSupabase,
+          status: existsInSupabase ? 'exists' : 'ready',
+        };
+      });
+      
+      return NextResponse.json({
+        success: true,
+        type: 'trucks',
+        preview,
+        summary: {
+          total: preview.length,
+          ready: preview.filter(p => p.status === 'ready').length,
+          exists: preview.filter(p => p.status === 'exists').length,
+        }
+      });
+    }
+    
+    if (syncType === 'venues') {
+      // Fetch venues for sync preview
+      const [airtableVenues, supabaseVenues] = await Promise.all([
+        fetchAirtableVenuesForSync(unsyncedOnly),
+        getVenues(),
+      ]);
+      
+      const preview = airtableVenues.map(venue => {
+        const existsInSupabase = supabaseVenues.some(sv => 
+          sv.name.toLowerCase().trim() === venue.name.toLowerCase().trim()
+        );
+        
+        return {
+          airtableId: venue.airtableId,
+          name: venue.name,
+          type: venue.type,
+          address: venue.address,
+          latitude: venue.latitude,
+          longitude: venue.longitude,
+          phone: venue.phone,
+          website: venue.website,
+          existsInSupabase,
+          status: existsInSupabase ? 'exists' : 'ready',
+        };
+      });
+      
+      return NextResponse.json({
+        success: true,
+        type: 'venues',
+        preview,
+        summary: {
+          total: preview.length,
+          ready: preview.filter(p => p.status === 'ready').length,
+          exists: preview.filter(p => p.status === 'exists').length,
+        }
+      });
+    }
+    
+    // Default: schedule sync
     // Fetch data from both sources
     const [airtableSchedule, airtableTrucks, airtableVenues, supabaseTrucks, supabaseVenues] = await Promise.all([
       fetchAirtableSchedule(unsyncedOnly),
@@ -188,7 +274,8 @@ export async function GET(request: NextRequest) {
     });
 
     return NextResponse.json({ 
-      success: true, 
+      success: true,
+      type: 'schedule',
       preview,
       summary: {
         total: preview.length,
@@ -209,12 +296,144 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { items } = body; // Array of airtableIds to sync, with optional overrides
+    const { items, type = 'schedule' } = body;
 
     if (!items || !Array.isArray(items)) {
       return NextResponse.json({ success: false, error: 'No items provided' }, { status: 400 });
     }
 
+    // Handle truck sync
+    if (type === 'trucks') {
+      const airtableTrucks = await fetchAirtableTrucksForSync(false);
+      const results: { airtableId: string; success: boolean; error?: string }[] = [];
+      const successfulIds: string[] = [];
+
+      for (const item of items) {
+        const { airtableId } = item;
+        
+        try {
+          const truck = airtableTrucks.find(t => t.airtableId === airtableId);
+          if (!truck) {
+            results.push({ airtableId, success: false, error: 'Truck not found in Airtable' });
+            continue;
+          }
+
+          const truckData = {
+            name: truck.name,
+            cuisine_type: truck.cuisine,
+            phone: truck.phone,
+            facebook: truck.facebook,
+            instagram: truck.instagram,
+            website: truck.website,
+            is_visible: true,
+          };
+
+          const { error: insertError } = await supabaseAdmin.from('trucks').insert(truckData);
+          
+          if (insertError) {
+            throw insertError;
+          }
+
+          successfulIds.push(airtableId);
+          results.push({ airtableId, success: true });
+        } catch (error) {
+          console.error('Sync error for truck', airtableId, ':', error);
+          results.push({ 
+            airtableId, 
+            success: false, 
+            error: error instanceof Error ? error.message : String(error) 
+          });
+        }
+      }
+
+      // Mark successful entries as synced
+      if (successfulIds.length > 0) {
+        try {
+          await markRecordsAsSyncedInTable('Trucks', successfulIds);
+        } catch (error) {
+          console.error('Failed to mark trucks as synced:', error);
+        }
+      }
+
+      return NextResponse.json({ 
+        success: true,
+        type: 'trucks',
+        results,
+        summary: {
+          total: items.length,
+          successful: results.filter(r => r.success).length,
+          failed: results.filter(r => !r.success).length,
+        }
+      });
+    }
+
+    // Handle venue sync
+    if (type === 'venues') {
+      const airtableVenues = await fetchAirtableVenuesForSync(false);
+      const results: { airtableId: string; success: boolean; error?: string }[] = [];
+      const successfulIds: string[] = [];
+
+      for (const item of items) {
+        const { airtableId } = item;
+        
+        try {
+          const venue = airtableVenues.find(v => v.airtableId === airtableId);
+          if (!venue) {
+            results.push({ airtableId, success: false, error: 'Venue not found in Airtable' });
+            continue;
+          }
+
+          const venueData = {
+            name: venue.name,
+            venue_type: venue.type,
+            address: venue.address,
+            latitude: venue.latitude,
+            longitude: venue.longitude,
+            phone: venue.phone,
+            website: venue.website,
+            is_visible: true,
+          };
+
+          const { error: insertError } = await supabaseAdmin.from('venues').insert(venueData);
+          
+          if (insertError) {
+            throw insertError;
+          }
+
+          successfulIds.push(airtableId);
+          results.push({ airtableId, success: true });
+        } catch (error) {
+          console.error('Sync error for venue', airtableId, ':', error);
+          results.push({ 
+            airtableId, 
+            success: false, 
+            error: error instanceof Error ? error.message : String(error) 
+          });
+        }
+      }
+
+      // Mark successful entries as synced
+      if (successfulIds.length > 0) {
+        try {
+          await markRecordsAsSyncedInTable('Venues', successfulIds);
+        } catch (error) {
+          console.error('Failed to mark venues as synced:', error);
+        }
+      }
+
+      return NextResponse.json({ 
+        success: true,
+        type: 'venues',
+        results,
+        summary: {
+          total: items.length,
+          successful: results.filter(r => r.success).length,
+          failed: results.filter(r => !r.success).length,
+        }
+      });
+    }
+
+    // Default: schedule sync
     // Fetch current data
     const [airtableSchedule, airtableTrucks, airtableVenues, supabaseTrucks, supabaseVenues] = await Promise.all([
       fetchAirtableSchedule(false), // Fetch all to find the items
@@ -350,7 +569,8 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ 
-      success: true, 
+      success: true,
+      type: 'schedule',
       results,
       summary: {
         total: items.length,

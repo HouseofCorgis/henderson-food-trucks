@@ -27,6 +27,29 @@ export interface AirtableScheduleEntry {
   synced: boolean;
 }
 
+export interface AirtableTruckEntry {
+  airtableId: string;
+  name: string;
+  cuisine: string | null;
+  phone: string | null;
+  facebook: string | null;
+  instagram: string | null;
+  website: string | null;
+  synced: boolean;
+}
+
+export interface AirtableVenueEntry {
+  airtableId: string;
+  name: string;
+  type: string | null;
+  address: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  phone: string | null;
+  website: string | null;
+  synced: boolean;
+}
+
 // Generic function to fetch records from any table
 async function fetchAirtableRecords(tableName: string, filterFormula?: string): Promise<AirtableRecord[]> {
   const allRecords: AirtableRecord[] = [];
@@ -78,8 +101,8 @@ async function updateAirtableRecord(tableName: string, recordId: string, fields:
   }
 }
 
-// Batch update multiple records
-export async function markRecordsAsSynced(recordIds: string[]): Promise<void> {
+// Batch update multiple records for a specific table
+export async function markRecordsAsSyncedInTable(tableName: string, recordIds: string[]): Promise<void> {
   // Airtable allows max 10 records per batch update
   const batches = [];
   for (let i = 0; i < recordIds.length; i += 10) {
@@ -87,7 +110,7 @@ export async function markRecordsAsSynced(recordIds: string[]): Promise<void> {
   }
 
   for (const batch of batches) {
-    const url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${encodeURIComponent('Calendar')}`;
+    const url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${encodeURIComponent(tableName)}`;
     
     const response = await fetch(url, {
       method: 'PATCH',
@@ -108,6 +131,11 @@ export async function markRecordsAsSynced(recordIds: string[]): Promise<void> {
       throw new Error(`Airtable API error: ${response.status} - ${error}`);
     }
   }
+}
+
+// Batch update multiple records (legacy - for Calendar)
+export async function markRecordsAsSynced(recordIds: string[]): Promise<void> {
+  return markRecordsAsSyncedInTable('Calendar', recordIds);
 }
 
 // Fetch schedule entries from Airtable Calendar table
@@ -175,11 +203,46 @@ export async function fetchAirtableTrucks(): Promise<{ id: string; name: string 
   }));
 }
 
+// Fetch trucks from Airtable with full details for syncing
+export async function fetchAirtableTrucksForSync(unsyncedOnly: boolean = true): Promise<AirtableTruckEntry[]> {
+  const filterFormula = unsyncedOnly ? "NOT({Synced})" : undefined;
+  const records = await fetchAirtableRecords('Trucks', filterFormula);
+  
+  return records.map(record => ({
+    airtableId: record.id,
+    name: record.fields['Name'] || '',
+    cuisine: record.fields['Cuisine'] || null,
+    phone: record.fields['Phone'] || null,
+    facebook: record.fields['Facebook'] || null,
+    instagram: record.fields['Instagram'] || null,
+    website: record.fields['Website'] || null,
+    synced: record.fields['Synced'] || false,
+  }));
+}
+
 // Fetch venues from Airtable to help with matching
 export async function fetchAirtableVenues(): Promise<{ id: string; name: string }[]> {
   const records = await fetchAirtableRecords('Venues');
   return records.map(record => ({
     id: record.id,
     name: record.fields['Name'] || '',
+  }));
+}
+
+// Fetch venues from Airtable with full details for syncing
+export async function fetchAirtableVenuesForSync(unsyncedOnly: boolean = true): Promise<AirtableVenueEntry[]> {
+  const filterFormula = unsyncedOnly ? "NOT({Synced})" : undefined;
+  const records = await fetchAirtableRecords('Venues', filterFormula);
+  
+  return records.map(record => ({
+    airtableId: record.id,
+    name: record.fields['Name'] || '',
+    type: record.fields['Type'] || null,
+    address: record.fields['Address'] || null,
+    latitude: record.fields['Latitude'] ? parseFloat(record.fields['Latitude']) : null,
+    longitude: record.fields['Longitude'] ? parseFloat(record.fields['Longitude']) : null,
+    phone: record.fields['Phone'] || null,
+    website: record.fields['Website'] || null,
+    synced: record.fields['Synced'] || false,
   }));
 }

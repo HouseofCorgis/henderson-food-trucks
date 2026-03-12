@@ -2,27 +2,44 @@
 
 import { useState } from 'react';
 
+type SyncType = 'schedule' | 'trucks' | 'venues';
+
 interface SyncPreviewItem {
   airtableId: string;
-  airtableName: string;
-  truckName: string | null;
-  venueName: string | null;
-  date: string | null;
-  startTime: string | null;
-  endTime: string | null;
-  eventName: string | null;
-  matchedTruck: { id: string; name: string } | null;
-  matchedVenue: { id: string; name: string } | null;
-  status: 'ready' | 'missing_truck' | 'missing_venue' | 'missing_date' | 'missing_time' | 'error';
+  airtableName?: string;
+  name?: string;
+  truckName?: string | null;
+  venueName?: string | null;
+  date?: string | null;
+  startTime?: string | null;
+  endTime?: string | null;
+  eventName?: string | null;
+  matchedTruck?: { id: string; name: string } | null;
+  matchedVenue?: { id: string; name: string } | null;
+  status: string;
+  // Truck fields
+  cuisine?: string | null;
+  phone?: string | null;
+  facebook?: string | null;
+  instagram?: string | null;
+  website?: string | null;
+  // Venue fields
+  type?: string | null;
+  address?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  existsInSupabase?: boolean;
 }
 
 interface SyncSummary {
   total: number;
   ready: number;
-  issues: number;
+  issues?: number;
+  exists?: number;
 }
 
 export default function AirtableSync() {
+  const [activeTab, setActiveTab] = useState<SyncType>('schedule');
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [preview, setPreview] = useState<SyncPreviewItem[] | null>(null);
@@ -39,7 +56,7 @@ export default function AirtableSync() {
     setSyncResult(null);
 
     try {
-      const response = await fetch('/api/airtable-sync?unsynced=true');
+      const response = await fetch(`/api/airtable-sync?unsynced=true&type=${activeTab}`);
       const data = await response.json();
 
       if (data.success) {
@@ -71,7 +88,7 @@ export default function AirtableSync() {
       const response = await fetch('/api/airtable-sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items }),
+        body: JSON.stringify({ items, type: activeTab }),
       });
 
       const data = await response.json();
@@ -121,10 +138,21 @@ export default function AirtableSync() {
     setSelectedItems(new Set());
   };
 
-  const getStatusBadge = (status: SyncPreviewItem['status']) => {
+  const handleTabChange = (tab: SyncType) => {
+    setActiveTab(tab);
+    setPreview(null);
+    setSummary(null);
+    setSelectedItems(new Set());
+    setError(null);
+    setSyncResult(null);
+  };
+
+  const getStatusBadge = (status: string) => {
     switch (status) {
       case 'ready':
         return <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">Ready</span>;
+      case 'exists':
+        return <span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs font-medium">Already Exists</span>;
       case 'missing_truck':
         return <span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs font-medium">No Truck Match</span>;
       case 'missing_venue':
@@ -138,11 +166,194 @@ export default function AirtableSync() {
     }
   };
 
+  const renderScheduleTable = () => (
+    <table className="w-full text-sm">
+      <thead>
+        <tr className="bg-stone-100">
+          <th className="px-3 py-2 text-left w-10">
+            <input 
+              type="checkbox" 
+              checked={selectedItems.size === preview?.filter(p => p.status === 'ready').length && selectedItems.size > 0}
+              onChange={(e) => e.target.checked ? selectAllReady() : selectNone()}
+              className="rounded"
+            />
+          </th>
+          <th className="px-3 py-2 text-left">Truck</th>
+          <th className="px-3 py-2 text-left">Venue</th>
+          <th className="px-3 py-2 text-left">Date</th>
+          <th className="px-3 py-2 text-left">Time</th>
+          <th className="px-3 py-2 text-left">Status</th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-stone-100">
+        {preview?.map((item) => (
+          <tr key={item.airtableId} className={`hover:bg-stone-50 ${item.status !== 'ready' ? 'opacity-60' : ''}`}>
+            <td className="px-3 py-2">
+              <input
+                type="checkbox"
+                checked={selectedItems.has(item.airtableId)}
+                onChange={() => toggleItem(item.airtableId)}
+                disabled={item.status === 'missing_date' || item.status === 'missing_time'}
+                className="rounded"
+              />
+            </td>
+            <td className="px-3 py-2">
+              <div>{item.truckName || <span className="text-stone-400">—</span>}</div>
+              {item.matchedTruck && (
+                <div className="text-xs text-green-600">✓ {item.matchedTruck.name}</div>
+              )}
+              {item.truckName && !item.matchedTruck && (
+                <div className="text-xs text-yellow-600">Will add as "other" truck</div>
+              )}
+            </td>
+            <td className="px-3 py-2">
+              <div>{item.venueName || <span className="text-stone-400">—</span>}</div>
+              {item.matchedVenue && (
+                <div className="text-xs text-green-600">✓ {item.matchedVenue.name}</div>
+              )}
+              {item.venueName && !item.matchedVenue && (
+                <div className="text-xs text-yellow-600">Will add as "other" venue</div>
+              )}
+            </td>
+            <td className="px-3 py-2">
+              {item.date ? new Date(item.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : <span className="text-red-500">Missing</span>}
+            </td>
+            <td className="px-3 py-2">
+              {item.startTime && item.endTime ? `${item.startTime} - ${item.endTime}` : <span className="text-red-500">Missing</span>}
+            </td>
+            <td className="px-3 py-2">
+              {getStatusBadge(item.status)}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+
+  const renderTrucksTable = () => (
+    <table className="w-full text-sm">
+      <thead>
+        <tr className="bg-stone-100">
+          <th className="px-3 py-2 text-left w-10">
+            <input 
+              type="checkbox" 
+              checked={selectedItems.size === preview?.filter(p => p.status === 'ready').length && selectedItems.size > 0}
+              onChange={(e) => e.target.checked ? selectAllReady() : selectNone()}
+              className="rounded"
+            />
+          </th>
+          <th className="px-3 py-2 text-left">Name</th>
+          <th className="px-3 py-2 text-left">Cuisine</th>
+          <th className="px-3 py-2 text-left">Phone</th>
+          <th className="px-3 py-2 text-left">Social</th>
+          <th className="px-3 py-2 text-left">Status</th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-stone-100">
+        {preview?.map((item) => (
+          <tr key={item.airtableId} className={`hover:bg-stone-50 ${item.status !== 'ready' ? 'opacity-60' : ''}`}>
+            <td className="px-3 py-2">
+              <input
+                type="checkbox"
+                checked={selectedItems.has(item.airtableId)}
+                onChange={() => toggleItem(item.airtableId)}
+                disabled={item.status === 'exists'}
+                className="rounded"
+              />
+            </td>
+            <td className="px-3 py-2 font-medium">{item.name}</td>
+            <td className="px-3 py-2">{item.cuisine || <span className="text-stone-400">—</span>}</td>
+            <td className="px-3 py-2">{item.phone || <span className="text-stone-400">—</span>}</td>
+            <td className="px-3 py-2">
+              <div className="flex gap-2">
+                {item.facebook && <span className="text-blue-600">FB</span>}
+                {item.instagram && <span className="text-pink-600">IG</span>}
+                {item.website && <span className="text-stone-600">Web</span>}
+              </div>
+            </td>
+            <td className="px-3 py-2">
+              {getStatusBadge(item.status)}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+
+  const renderVenuesTable = () => (
+    <table className="w-full text-sm">
+      <thead>
+        <tr className="bg-stone-100">
+          <th className="px-3 py-2 text-left w-10">
+            <input 
+              type="checkbox" 
+              checked={selectedItems.size === preview?.filter(p => p.status === 'ready').length && selectedItems.size > 0}
+              onChange={(e) => e.target.checked ? selectAllReady() : selectNone()}
+              className="rounded"
+            />
+          </th>
+          <th className="px-3 py-2 text-left">Name</th>
+          <th className="px-3 py-2 text-left">Type</th>
+          <th className="px-3 py-2 text-left">Address</th>
+          <th className="px-3 py-2 text-left">Coords</th>
+          <th className="px-3 py-2 text-left">Status</th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-stone-100">
+        {preview?.map((item) => (
+          <tr key={item.airtableId} className={`hover:bg-stone-50 ${item.status !== 'ready' ? 'opacity-60' : ''}`}>
+            <td className="px-3 py-2">
+              <input
+                type="checkbox"
+                checked={selectedItems.has(item.airtableId)}
+                onChange={() => toggleItem(item.airtableId)}
+                disabled={item.status === 'exists'}
+                className="rounded"
+              />
+            </td>
+            <td className="px-3 py-2 font-medium">{item.name}</td>
+            <td className="px-3 py-2">{item.type || <span className="text-stone-400">—</span>}</td>
+            <td className="px-3 py-2 text-xs">{item.address || <span className="text-stone-400">—</span>}</td>
+            <td className="px-3 py-2">
+              {item.latitude && item.longitude ? (
+                <span className="text-green-600 text-xs">✓</span>
+              ) : (
+                <span className="text-stone-400 text-xs">—</span>
+              )}
+            </td>
+            <td className="px-3 py-2">
+              {getStatusBadge(item.status)}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+
   return (
     <div className="bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden">
       <div className="px-6 py-4 bg-gradient-to-r from-purple-600 to-purple-700 text-white">
         <h2 className="text-xl font-bold">Airtable Sync</h2>
-        <p className="text-purple-200 text-sm">Import schedule entries from your Airtable Calendar</p>
+        <p className="text-purple-200 text-sm">Import data from your Airtable base</p>
+      </div>
+
+      {/* Tabs */}
+      <div className="border-b border-stone-200">
+        <div className="flex">
+          {(['schedule', 'trucks', 'venues'] as SyncType[]).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => handleTabChange(tab)}
+              className={`px-6 py-3 font-medium capitalize transition-colors ${
+                activeTab === tab
+                  ? 'text-purple-600 border-b-2 border-purple-600'
+                  : 'text-stone-500 hover:text-stone-700'
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="p-6">
@@ -188,8 +399,11 @@ export default function AirtableSync() {
             <div className="flex gap-6 text-sm">
               <span><strong>{summary.total}</strong> entries found</span>
               <span className="text-green-600"><strong>{summary.ready}</strong> ready to sync</span>
-              {summary.issues > 0 && (
+              {summary.issues !== undefined && summary.issues > 0 && (
                 <span className="text-yellow-600"><strong>{summary.issues}</strong> with issues</span>
+              )}
+              {summary.exists !== undefined && summary.exists > 0 && (
+                <span className="text-yellow-600"><strong>{summary.exists}</strong> already exist</span>
               )}
             </div>
           </div>
@@ -208,67 +422,9 @@ export default function AirtableSync() {
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-stone-100">
-                    <th className="px-3 py-2 text-left w-10">
-                      <input 
-                        type="checkbox" 
-                        checked={selectedItems.size === preview.filter(p => p.status === 'ready').length && selectedItems.size > 0}
-                        onChange={(e) => e.target.checked ? selectAllReady() : selectNone()}
-                        className="rounded"
-                      />
-                    </th>
-                    <th className="px-3 py-2 text-left">Truck</th>
-                    <th className="px-3 py-2 text-left">Venue</th>
-                    <th className="px-3 py-2 text-left">Date</th>
-                    <th className="px-3 py-2 text-left">Time</th>
-                    <th className="px-3 py-2 text-left">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-stone-100">
-                  {preview.map((item) => (
-                    <tr key={item.airtableId} className={`hover:bg-stone-50 ${item.status !== 'ready' ? 'opacity-60' : ''}`}>
-                      <td className="px-3 py-2">
-                        <input
-                          type="checkbox"
-                          checked={selectedItems.has(item.airtableId)}
-                          onChange={() => toggleItem(item.airtableId)}
-                          disabled={item.status === 'missing_date' || item.status === 'missing_time'}
-                          className="rounded"
-                        />
-                      </td>
-                      <td className="px-3 py-2">
-                        <div>{item.truckName || <span className="text-stone-400">—</span>}</div>
-                        {item.matchedTruck && (
-                          <div className="text-xs text-green-600">✓ {item.matchedTruck.name}</div>
-                        )}
-                        {item.truckName && !item.matchedTruck && (
-                          <div className="text-xs text-yellow-600">Will add as "other" truck</div>
-                        )}
-                      </td>
-                      <td className="px-3 py-2">
-                        <div>{item.venueName || <span className="text-stone-400">—</span>}</div>
-                        {item.matchedVenue && (
-                          <div className="text-xs text-green-600">✓ {item.matchedVenue.name}</div>
-                        )}
-                        {item.venueName && !item.matchedVenue && (
-                          <div className="text-xs text-yellow-600">Will add as "other" venue</div>
-                        )}
-                      </td>
-                      <td className="px-3 py-2">
-                        {item.date ? new Date(item.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : <span className="text-red-500">Missing</span>}
-                      </td>
-                      <td className="px-3 py-2">
-                        {item.startTime && item.endTime ? `${item.startTime} - ${item.endTime}` : <span className="text-red-500">Missing</span>}
-                      </td>
-                      <td className="px-3 py-2">
-                        {getStatusBadge(item.status)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              {activeTab === 'schedule' && renderScheduleTable()}
+              {activeTab === 'trucks' && renderTrucksTable()}
+              {activeTab === 'venues' && renderVenuesTable()}
             </div>
           </div>
         )}
