@@ -324,7 +324,6 @@ export async function POST(request: NextRequest) {
             phone: truck.phone,
             facebook: truck.facebook,
             instagram: truck.instagram,
-            website: truck.website,
             is_visible: true,
           };
 
@@ -385,10 +384,10 @@ export async function POST(request: NextRequest) {
 
           const venueData = {
             name: venue.name,
-            venue_type: venue.type,
+            type: venue.type,
             address: venue.address,
-            latitude: venue.latitude,
-            longitude: venue.longitude,
+            lat: venue.latitude,
+            lng: venue.longitude,
             phone: venue.phone,
             website: venue.website,
             is_visible: true,
